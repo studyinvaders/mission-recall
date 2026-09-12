@@ -11,6 +11,8 @@
   #difficultyView, #loadingView, #errorView, #gameView, #gameOverView{ display:none; }
   #errorView p{ font-size:18px; color:var(--ink-dim); margin-bottom:20px; text-align:center; }
 
+  .navGroup { display: flex; gap: 8px; }
+
   .gameHud{
     display:flex;
     align-items:center;
@@ -130,11 +132,15 @@
   <div class="cabinet wide">
 
     <div class="topBar">
-      <button class="btnGhost" id="backBtn">&larr; Menu</button>
+      <div class="navGroup">
+        <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
+        <button class="btnGhost" id="backBriefingBtn">Back to Briefing</button>
+      </div>
       <span class="agentTag">Agent: <span id="agentName">—</span></span>
     </div>
     <h2 style="text-align:center;">MISSION: DEFEND</h2>
 
+    <!-- Difficulty selection state -->
     <div id="difficultyView">
       <p style="text-align:center; color:var(--ink-dim); font-size:17px; margin:0 0 18px;">Choose your mission difficulty</p>
       <div class="difficultyGrid">
@@ -203,7 +209,6 @@
 <script src="assets/starfield.js"></script>
 <script src="assets/ai.js"></script>
 <script>
-// ---------- Read handoff data ----------
 const username = sessionStorage.getItem('si_username');
 const noteRaw = sessionStorage.getItem('si_note');
 const learnDataRaw = sessionStorage.getItem('si_learnData');
@@ -216,7 +221,6 @@ const note = noteRaw ? JSON.parse(noteRaw) : null;
 const learnData = learnDataRaw ? JSON.parse(learnDataRaw) : null;
 document.getElementById('agentName').textContent = username || '—';
 
-// ---------- Elements ----------
 const difficultyView = document.getElementById('difficultyView');
 const loadingView = document.getElementById('loadingView');
 const errorView = document.getElementById('errorView');
@@ -452,7 +456,6 @@ function spawnUfos(q){
 
   const narrow = CW < 480;
   const cols = narrow ? 2 : 4;
-  const rows = narrow ? 2 : 1;
   const margin = Math.max(24, Math.min(55, CW * 0.08));
   const usableW = Math.max(80, CW - margin * 2);
   const colSpacing = usableW / cols;
@@ -734,13 +737,24 @@ function endMission(completed){
     `Score: ${score} — ${correctCount}/${quiz.length} correct`;
 }
 
-document.getElementById('backBtn').addEventListener('click', () => {
+// Navigation Listeners
+document.getElementById('mainMenuBtn').addEventListener('click', () => {
   if(gameActive){
-    if(confirm('Leave the mission? Your progress will be lost.')){
+    if(confirm('Return to main menu? Your progress will be lost.')){
       window.location.href = 'index.html';
     }
   } else {
     window.location.href = 'index.html';
+  }
+});
+
+document.getElementById('backBriefingBtn').addEventListener('click', () => {
+  if(gameActive){
+    if(confirm('Return to briefing? Your mission progress will be lost.')){
+      window.location.href = 'learn.html';
+    }
+  } else {
+    window.location.href = 'learn.html';
   }
 });
 
