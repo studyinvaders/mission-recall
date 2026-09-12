@@ -7,7 +7,7 @@ class RetroAudioEngine {
     // Background Music
     this.bgm = new Audio('assets/audio/mega_hyper_ultrastorm.mp3');
     this.bgm.loop = true;
-    this.bgm.volume = 0.35; // 35% background volume
+    this.bgm.volume = 0.10; // Lowered background volume to 10% (comfortable retro background level)
 
     // Sound Effects Paths
     this.explosionSrc = 'assets/audio/explosion.wav';
@@ -48,7 +48,7 @@ class RetroAudioEngine {
     return this.isMuted;
   }
 
-  playSFX(src, volume = 0.5) {
+  playSFX(src, volume = 0.15) {
     if (this.isMuted) return;
     const sfx = new Audio(src);
     sfx.volume = volume;
@@ -56,15 +56,15 @@ class RetroAudioEngine {
   }
 
   playExplosion() {
-    this.playSFX(this.explosionSrc, 0.55);
+    this.playSFX(this.explosionSrc, 0.15); // Lowered explosion SFX to 15%
   }
 
   playLaser() {
-    this.playSFX(this.laserSrc, 0.4);
+    this.playSFX(this.laserSrc, 0.10); // Lowered laser SFX to 10%
   }
 
   playPowerUp() {
-    this.playSFX(this.powerUpSrc, 0.6);
+    this.playSFX(this.powerUpSrc, 0.15); // Lowered power-up SFX to 15%
   }
 }
 
