@@ -1,10 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission: Defend — Study Invaders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  #difficultyView, #loadingView, #errorView, #gameView, #gameOverView{ display:none; }
+  #errorView p{ font-size:18px; color:var(--ink-dim); margin-bottom:20px; text-align:center; }
+
+  .navGroup { display: flex; gap: 8px; align-items: center; }
+
+  .langBar { display: flex; gap: 4px; }
+  .langBtn {
+    background: var(--void-deep);
+    border: 1px solid var(--panel-edge);
+    color: var(--ink-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .langBtn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(76,224,210,0.1); }
+
+  .gameHud{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+    font-size:17px;
+  }
+  .hudScore{ color:var(--amber); }
+  .livesRow{ display:flex; gap:6px; font-size:22px; color: var(--red); }
+  .lifeIcon{ transition: opacity 0.3s, transform 0.3s; }
+  .lifeIcon.lifeLost{ opacity:0; transform: scale(1.6); }
+
+  .questionCounter{
+    text-align:center;
+    font-size:15px;
+    color:var(--ink-dim);
+    letter-spacing:1px;
+    margin-bottom:6px;
+  }
+  .questionText{
+    text-align:center;
+    font-size:21px;
+    line-height:1.4;
+    color:var(--ink);
+    min-height:58px;
+    margin-bottom:10px;
+    padding:0 4px;
+  }
+  .controlHint{
+    text-align:center;
+    font-size:14px;
+    color:var(--ink-dim);
+    opacity:0.75;
+    margin-bottom:10px;
+    letter-spacing:0.5px;
+  }
+
+  .arena{
+    position:relative;
+    width:100%;
+    height:380px;
+    border:2px solid var(--panel-edge);
+    border-radius:10px;
+    overflow:hidden;
+    background:rgba(10,11,30,0.35);
+    cursor:crosshair;
+    touch-action:none;
+  }
+  #gameCanvas{ position:absolute; inset:0; display:block; }
+  #ufoLabels{ position:absolute; inset:0; pointer-events:none; }
+  .ufoLabel{
+    position:absolute;
+    width:120px;
+    margin-left:-60px;
+    text-align:center;
+    font-size:14px;
+    line-height:1.2;
+    color:var(--ink);
+    text-shadow:0 1px 3px rgba(0,0,0,0.8);
+    transition:opacity 0.2s;
+  }
+
+  .feedbackBanner{
+    text-align:center;
+    font-size:17px;
+    min-height:26px;
+    margin-top:14px;
+    padding:0 8px;
+    color:var(--amber);
+    opacity:0;
+    transition:opacity 0.2s;
+  }
+  .feedbackBanner.show{ opacity:1; }
+  .feedbackBanner.good{ color:var(--cyan); }
+  .feedbackBanner.bad{ color:var(--red); }
+
+  #gameOverView{ text-align:center; padding:20px 0; }
+  #gameOverView h2{ margin-bottom:14px; }
+  #gameOverView p{ font-size:19px; color:var(--ink-dim); margin-bottom:24px; }
+
+  #difficultyView{ padding:6px 0; }
+  .difficultyGrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .difficultyCard{
+    background:var(--panel);
+    border:2px solid var(--panel-edge);
+    border-radius:10px;
+    padding:16px 12px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color 0.15s, transform 0.1s;
+    font-family:'VT323', monospace;
+    color:var(--ink);
+  }
+  .difficultyCard:hover{ border-color:var(--cyan); transform:translateY(-2px); }
+  .difficultyCard:active{ transform:translateY(0); }
+  .difficultyName{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    letter-spacing:1px;
+    margin-bottom:8px;
+  }
+  .difficultyCard.easy .difficultyName{ color:var(--cyan); }
+  .difficultyCard.normal .difficultyName{ color:var(--amber); }
+  .difficultyCard.hard .difficultyName{ color:var(--red); }
+  .difficultyCard.endless .difficultyName{ color:#c9a4ff; }
+  .difficultyCard.endless{ border-color:#5a3d8a; }
+  .difficultyCard.endless:hover{ border-color:#c9a4ff; }
+  .difficultyDesc{ font-size:16px; color:var(--ink-dim); }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="crt"></div>
+
+<div class="stage">
+  <div class="cabinet wide">
+
+    <div class="topBar">
+      <div class="navGroup">
+        <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
+        <button class="btnGhost" id="backBriefingBtn">Back to Briefing</button>
+        <div class="langBar">
+          <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
+          <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+        </div>
+      </div>
+      <span class="agentTag">Agent: <span id="agentName">—</span></span>
+    </div>
+    <h2 style="text-align:center;" id="t_mainTitle">MISSION: DEFEND</h2>
+
+    <!-- Difficulty selection state -->
+    <div id="difficultyView">
+      <p style="text-align:center; color:var(--ink-dim); font-size:17px; margin:0 0 18px;" id="t_diffSubtitle">Choose your mission difficulty</p>
+      <div class="difficultyGrid">
+        <div class="difficultyCard easy" data-difficulty="easy" data-count="10">
+          <div class="difficultyName">EASY</div>
+          <div class="difficultyDesc" id="t_easyDesc">10 questions</div>
+        </div>
+        <div class="difficultyCard normal" data-difficulty="normal" data-count="15">
+          <div class="difficultyName">NORMAL</div>
+          <div class="difficultyDesc" id="t_normalDesc">15 questions</div>
+        </div>
+        <div class="difficultyCard hard" data-difficulty="hard" data-count="20">
+          <div class="difficultyName">HARD</div>
+          <div class="difficultyDesc" id="t_hardDesc">20 questions</div>
+        </div>
+        <div class="difficultyCard endless" data-difficulty="endless" data-count="30">
+          <div class="difficultyName">ENDLESS</div>
+          <div class="difficultyDesc" id="t_endlessDesc">Survive as long as you can</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="loadingView" style="text-align:center;">
+      <div class="radarLoader">
+        <div class="radarSweep"></div>
+        <div id="blipLayer"></div>
+      </div>
+      <div id="loadingStatus" class="loadingStatusText">Loading ammo crates...</div>
+    </div>
+
+    <div id="errorView">
+      <p id="errorMessage">Couldn't prep the mission.</p>
+      <div style="text-align:center;">
+        <button class="btnGhost" id="retryBtn">Try again</button>
+      </div>
+    </div>
+
+    <div id="gameView">
+      <div class="gameHud">
+        <div class="livesRow" id="livesRow"></div>
+        <div class="hudScore"><span id="t_scoreLabel">Score</span>: <span id="scoreVal">0</span></div>
+      </div>
+      <div class="questionCounter" id="questionCounter">Question 1 / 8</div>
+      <div class="questionText" id="questionText"></div>
+      <div class="controlHint" id="t_controlHint">Move: A/D or mouse &middot; Shoot: Space or click</div>
+
+      <div class="arena" id="arena">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ufoLabels"></div>
+      </div>
+
+      <div class="feedbackBanner" id="feedbackBanner"></div>
+    </div>
+
+    <div id="gameOverView">
+      <h2 id="gameOverTitle">MISSION COMPLETE</h2>
+      <p id="gameOverScore">Score: 0</p>
+      <button class="btnPrimary ready" id="toResultsBtn">SEE RESULTS &gt;</button>
+    </div>
+
+    <p class="creditFooter">Made by Computer System Operation &middot; Sarawak Skills Sri Aman</p>
+
+  </div>
+</div>
+
+<script src="assets/starfield.js"></script>
+<script src="assets/ai.js"></script>
+<script>
+const i18n = {
+  en: {
+    mainMenu: "&larr; Main Menu",
+    backBriefing: "Back to Briefing",
+    mainTitle: "MISSION: DEFEND",
+    diffSubtitle: "Choose your mission difficulty",
+    easyDesc: "10 questions",
+    normalDesc: "15 questions",
+    hardDesc: "20 questions",
+    endlessDesc: "Survive as long as you can",
+    scoreLabel: "Score",
+    controlHint: "Move: A/D or mouse &middot; Shoot: Space or click",
+    seeResults: "SEE RESULTS &gt;",
+    retryBtn: "Try again",
+    loading: ["Loading ammo crates...", "Calibrating targeting reticle...", "Briefing squadron...", "Charting UFO formations...", "Warming up the engines...", "Almost ready, Agent..."],
+    correctLines: ['Direct hit!', 'Shield activated!', 'Security key secured!', 'Target protected!'],
+    wrongLines: ['Shield failure!', 'Wrong security key!', 'Decoy protected!', 'Data corrupted!'],
+    qPrefix: "Question"
+  },
+  bm: {
+    mainMenu: "&larr; Menu Utama",
+    backBriefing: "Kembali ke Taklimat",
+    mainTitle: "MISI: PERTAHANKAN",
+    diffSubtitle: "Pilih tahap kesukaran misi",
+    easyDesc: "10 soalan",
+    normalDesc: "15 soalan",
+    hardDesc: "20 soalan",
+    endlessDesc: "Bertahan seberapa lama yang boleh",
+    scoreLabel: "Markah",
+    controlHint: "Gerak: A/D atau tetikus &middot; Tembak: Ruang (Space) atau klik",
+    seeResults: "LIHAT KEPUTUSAN &gt;",
+    retryBtn: "Cuba lagi",
+    loading: ["Memuatkan kotak peluru...", "Melaraskan sasaran...", "Memberi taklimat skuadron...", "Memetakan formasi UFO...", "Memanaskan enjin...", "Hampir bersedia, Ejen..."],
+    correctLines: ['Perisai diaktifkan!', 'Kunci keselamatan dilindungi!', 'Berjaya!', 'Tepat sekali!'],
+    wrongLines: ['Perisai gagal!', 'Kunci keselamatan salah!', 'UFO palsu dilindungi!', 'Kurang tepat.'],
+    qPrefix: "Soalan"
+  }
+};
+
+let currentLang = localStorage.getItem('si_lang') || 'en';
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('si_lang', lang);
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
+
+  const dict = i18n[lang];
+  document.getElementById('mainMenuBtn').innerHTML = dict.mainMenu;
+  document.getElementById('backBriefingBtn').textContent = dict.backBriefing;
+  document.getElementById('t_mainTitle').textContent = dict.mainTitle;
+  document.getElementById('t_diffSubtitle').textContent = dict.diffSubtitle;
+  document.getElementById('t_easyDesc').textContent = dict.easyDesc;
+  document.getElementById('t_normalDesc').textContent = dict.normalDesc;
+  document.getElementById('t_hardDesc').textContent = dict.hardDesc;
+  document.getElementById('t_endlessDesc').textContent = dict.endlessDesc;
+  document.getElementById('t_scoreLabel').textContent = dict.scoreLabel;
+  document.getElementById('t_controlHint').innerHTML = dict.controlHint;
+  document.getElementById('toResultsBtn').innerHTML = dict.seeResults;
+  document.getElementById('retryBtn').textContent = dict.retryBtn;
+}
+
+const username = sessionStorage.getItem('si_username');
+const noteRaw = sessionStorage.getItem('si_note');
+const learnDataRaw = sessionStorage.getItem('si_learnData');
+
+if(!username || !noteRaw || !learnDataRaw){
+  window.location.href = 'index.html';
+}
+
+const note = noteRaw ? JSON.parse(noteRaw) : null;
+const learnData = learnDataRaw ? JSON.parse(learnDataRaw) : null;
+document.getElementById('agentName').textContent = username || '—';
+
+const difficultyView = document.getElementById('difficultyView');
+const loadingView = document.getElementById('loadingView');
+const errorView = document.getElementById('errorView');
+const gameView = document.getElementById('gameView');
+const gameOverView = document.getElementById('gameOverView');
+const loadingStatus = document.getElementById('loadingStatus');
+const blipLayer = document.getElementById('blipLayer');
+const livesRow = document.getElementById('livesRow');
+const scoreVal = document.getElementById('scoreVal');
+const questionCounter = document.getElementById('questionCounter');
+const questionText = document.getElementById('questionText');
+const arena = document.getElementById('arena');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const ufoLabels = document.getElementById('ufoLabels');
+const feedbackBanner = document.getElementById('feedbackBanner');
+
+// ---------- Sprite loading ----------
+const sprites = {};
+function loadSprite(name, src){
+  const img = new Image();
+  img.src = src;
+  sprites[name] = img;
+}
+loadSprite('rocket', 'assets/sprites/rocket.png');
+loadSprite('ufoDefault', 'assets/sprites/ufo_default.png');
+loadSprite('ufoCorrect', 'assets/sprites/ufo_correct.png');
+loadSprite('ufoWrong', 'assets/sprites/ufo_wrong.png');
+
+let statusIdx = 0, statusInterval = null, blipInterval = null;
+function startLoadingFlourishes(){
+  statusIdx = 0;
+  const msgs = i18n[currentLang].loading;
+  loadingStatus.textContent = msgs[0];
+  statusInterval = setInterval(() => {
+    statusIdx = (statusIdx + 1) % msgs.length;
+    loadingStatus.textContent = msgs[statusIdx];
+  }, 1700);
+  blipInterval = setInterval(() => {
+    const blip = document.createElement('div');
+    blip.className = 'radarBlip';
+    blip.style.left = (20 + Math.random() * 60) + '%';
+    blip.style.top = (20 + Math.random() * 60) + '%';
+    blipLayer.appendChild(blip);
+    setTimeout(() => blip.remove(), 1600);
+  }, 500);
+}
+function stopLoadingFlourishes(){
+  clearInterval(statusInterval);
+  clearInterval(blipInterval);
+}
+
+let QUESTION_COUNT = 10;
+let selectedDifficulty = 'easy';
+
+function buildQuizPrompt(){
+  const subtopics = learnData.keywords ? learnData.keywords.map(k => k.term) : [];
+  const langInstruction = currentLang === 'bm'
+    ? "OUTPUT LANGUAGE: Bahasa Melayu. Write all questions and options in Bahasa Melayu."
+    : "OUTPUT LANGUAGE: English. Write all questions and options in English.";
+
+  return `${langInstruction}
+You are creating a multiple-choice quiz to test a student on their teacher's notes.
+Based ONLY on the attached notes (do not invent facts not supported by them), create exactly ${QUESTION_COUNT} multiple-choice questions.
+
+Each question must use exactly one subtopic tag chosen from this fixed list (use the exact spelling given): ${JSON.stringify(subtopics)}
+
+Respond with ONLY raw JSON (no markdown code fences, no commentary) — a JSON array shaped exactly like this:
+[
+  {
+    "question": "the question text",
+    "options": ["option A", "option B", "option C", "option D"],
+    "correctIndex": 0,
+    "subtopic": "one of the exact subtopic strings from the list above"
+  }
+]
+Make exactly one option correct per question (correctIndex is its 0-based position). Keep questions clear, options plausible but unambiguous. Keep each option short — under 6 words — since they'll be displayed on small UFOs.`;
+}
+
+function validateQuiz(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.filter(q =>
+    q && typeof q.question === 'string' &&
+    Array.isArray(q.options) && q.options.length === 4 &&
+    Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex <= 3 &&
+    typeof q.subtopic === 'string'
+  );
+}
+
+let quiz = [];
+
+async function generateQuiz(){
+  const raw = await askAI(buildQuizPrompt(), note);
+  const cleaned = validateQuiz(raw);
+  if(cleaned.length === 0) throw new Error(currentLang === 'bm' ? 'Tiada soalan sah diterimanya — cuba lagi.' : 'No valid questions came back — try again.');
+  return cleaned;
+}
+
+let currentIndex = 0;
+let score = 0;
+const LIVES_COUNT = 5;
+let lives = LIVES_COUNT;
+let resultsLog = [];
+let resolved = false;
+let gameActive = false;
+
+function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function renderLives(){
+  livesRow.innerHTML = '';
+  for(let i = 0; i < LIVES_COUNT; i++){
+    const span = document.createElement('span');
+    span.className = 'lifeIcon';
+    span.textContent = '♥';
+    livesRow.appendChild(span);
+  }
+}
+function renderLivesLoss(){
+  const icons = livesRow.querySelectorAll('.lifeIcon');
+  const el = icons[lives];
+  if(el) el.classList.add('lifeLost');
+}
+
+function showFeedback(text, kind){
+  feedbackBanner.textContent = text;
+  feedbackBanner.className = 'feedbackBanner show ' + kind;
+}
+function hideFeedback(){
+  feedbackBanner.className = 'feedbackBanner';
+}
+
+let CW = 0, CH = 0;
+
+function resizeCanvas(){
+  const rect = arena.getBoundingClientRect();
+  CW = Math.max(280, Math.floor(rect.width));
+  CH = Math.floor(rect.height);
+  canvas.width = CW;
+  canvas.height = CH;
+  canvas.style.width = CW + 'px';
+  canvas.style.height = CH + 'px';
+  if(ship) ship.y = CH - 34;
+  regenerateGameStars();
+}
+window.addEventListener('resize', () => { if(gameActive) resizeCanvas(); });
+
+let gameStars = [];
+function regenerateGameStars(){
+  const count = Math.floor((CW * CH) / 3200);
+  gameStars = Array.from({ length: count }, () => ({
+    x: Math.random() * CW,
+    y: Math.random() * CH,
+    r: Math.random() * 1.3 + 0.3,
+    speed: Math.random() * 18 + 6,
+    twinklePhase: Math.random() * Math.PI * 2
+  }));
+}
+
+let ship = { x: 0, y: 0, w: 34, h: 46, speed: 300 };
+function resetShip(){
+  ship.x = CW / 2;
+  ship.y = CH - 34;
+}
+
+const keys = { left: false, right: false };
+let mouseX = null;
+let lastMouseMoveTime = 0;
+const MOUSE_IDLE_TIMEOUT = 150;
+
+function onKeyDown(e){
+  if(!gameActive) return;
+  if(e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = true;
+  if(e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = true;
+  if(e.code === 'Space'){ e.preventDefault(); tryFire(); }
+}
+function onKeyUp(e){
+  if(e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = false;
+  if(e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = false;
+}
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
+
+window.addEventListener('mousemove', (e) => {
+  if(!gameActive) return;
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+  lastMouseMoveTime = performance.now();
+});
+canvas.addEventListener('click', () => tryFire());
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.touches[0].clientX - rect.left;
+  lastMouseMoveTime = performance.now();
+  tryFire();
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.touches[0].clientX - rect.left;
+  lastMouseMoveTime = performance.now();
+}, { passive: false });
+
+let projectiles = [];
+const PROJECTILE_SPEED = 460;
+const FIRE_COOLDOWN = 280;
+let lastFire = 0;
+
+function tryFire(){
+  if(!gameActive || resolved) return;
+  const now = performance.now();
+  if(now - lastFire < FIRE_COOLDOWN) return;
+  lastFire = now;
+  projectiles.push({ x: ship.x, y: ship.y - ship.h / 2 });
+}
+
+let ufos = [];
+let driftAmplitude = 34;
+
+function spawnUfos(q){
+  ufos = [];
+  ufoLabels.innerHTML = '';
+
+  const narrow = CW < 480;
+  const cols = narrow ? 2 : 4;
+  const margin = Math.max(24, Math.min(55, CW * 0.08));
+  const usableW = Math.max(80, CW - margin * 2);
+  const colSpacing = usableW / cols;
+  const labelWidth = Math.max(40, Math.min(130, colSpacing - 8));
+  const labelFontSize = colSpacing < 90 ? 11 : (colSpacing < 130 ? 13 : 14);
+  driftAmplitude = Math.max(10, Math.min(34, colSpacing * 0.22));
+
+  const rowSpacing = 84;
+  const topY = narrow ? 50 : 66;
+
+  for(let i = 0; i < 4; i++){
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const homeX = margin + (usableW * (col + 0.5)) / cols;
+    const homeY = topY + row * rowSpacing;
+    const ufo = {
+      homeX, x: homeX, homeY, y: homeY - CH - 60, phase: Math.random() * Math.PI * 2,
+      option: q.options[i], isCorrect: i === q.correctIndex,
+      subtopic: q.subtopic, alive: true, resultState: null,
+      state: 'entering'
+    };
+    const label = document.createElement('div');
+    label.className = 'ufoLabel';
+    label.textContent = q.options[i];
+    label.style.width = labelWidth + 'px';
+    label.style.marginLeft = (-labelWidth / 2) + 'px';
+    label.style.fontSize = labelFontSize + 'px';
+    ufoLabels.appendChild(label);
+    ufo.labelEl = label;
+    ufos.push(ufo);
+  }
+}
+
+function drawSprite(img, cx, cy, w, h){
+  if(!img || !img.complete || img.naturalWidth === 0) return;
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+}
+
+function drawShip(cx, cy){
+  drawSprite(sprites.rocket, cx, cy, ship.w, ship.h);
+}
+
+function drawUfo(cx, cy, resultState){
+  const img = resultState === 'correct' ? sprites.ufoCorrect
+            : resultState === 'wrong' ? sprites.ufoWrong
+            : sprites.ufoDefault;
+  drawSprite(img, cx, cy, 56, 40);
+}
+
+let particles = [];
+let explosionRings = [];
+
+function spawnExplosion(x, y, color){
+  const count = 12;
+  for(let i = 0; i < count; i++){
+    const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25);
+    const speed = 90 + Math.random() * 130;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0.45 + Math.random() * 0.2,
+      maxLife: 0.65,
+      color
+    });
+  }
+  explosionRings.push({ x, y, life: 0.35, maxLife: 0.35, color });
+}
+
+function updateExplosions(dt){
+  particles.forEach(p => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 160 * dt;
+    p.life -= dt;
+  });
+  particles = particles.filter(p => p.life > 0);
+  explosionRings.forEach(r => r.life -= dt);
+  explosionRings = explosionRings.filter(r => r.life > 0);
+}
+
+function renderExplosions(){
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  });
+  explosionRings.forEach(r => {
+    const t = 1 - r.life / r.maxLife;
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, 4 + t * 32, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
 function resolveHit(hitUfo){
   resolved = true;
   const q = quiz[currentIndex];
   const correct = hitUfo.isCorrect;
   const dict = i18n[currentLang];
 
-  // 1. REVEAL ALL COLORS INSTANTLY
+  // Reveal all colors instantly
   ufos.forEach(u => {
     u.resultState = u.isCorrect ? 'correct' : 'wrong';
   });
@@ -15,13 +642,12 @@ function resolveHit(hitUfo){
     showFeedback(pickRandom(dict.correctLines), 'good');
     resultsLog.push({ subtopic: q.subtopic, correct: true });
 
-    // Correct UFO is shielded and flies past; wrong UFOs explode
     ufos.forEach(u => {
       if(!u.isCorrect){
         spawnExplosion(u.x, u.y, '#ff5470');
         if(u.labelEl) u.labelEl.remove();
       } else {
-        u.state = 'flyPast'; // Fly safely past rocket
+        u.state = 'flyPast';
       }
     });
     ufos = ufos.filter(u => u.isCorrect);
@@ -35,20 +661,17 @@ function resolveHit(hitUfo){
     showFeedback(`${pickRandom(dict.wrongLines)} ${correctText}`, 'bad');
     resultsLog.push({ subtopic: q.subtopic, correct: false });
 
-    // The real correct UFO (and unshielded wrong ones) explode; the accidentally hit wrong UFO flies past
     ufos.forEach(u => {
       if(u !== hitUfo){
-        // Real correct UFO explodes in red because it was unshielded
-        spawnExplosion(u.x, u.y, u.isCorrect ? '#ff5470' : '#ff5470');
+        spawnExplosion(u.x, u.y, '#ff5470');
         if(u.labelEl) u.labelEl.remove();
       } else {
-        u.state = 'flyPast'; // The wrong UFO you accidentally protected flies past
+        u.state = 'flyPast';
       }
     });
     ufos = ufos.filter(u => u === hitUfo);
   }
 
-  // Brief pause for visual feedback before clearing the stage
   const delay = correct ? 1600 : 2400;
   setTimeout(() => {
     currentIndex++;
@@ -59,3 +682,247 @@ function resolveHit(hitUfo){
     });
   }, delay);
 }
+
+const EXIT_SPEED = 480;
+const FLY_PAST_SPEED = 520;
+let exitCompleteCallback = null;
+
+function beginExitSweep(onComplete){
+  hideFeedback();
+  if(ufos.length === 0){ onComplete(); return; }
+  ufos.forEach(u => { u.state = 'exiting'; });
+  exitCompleteCallback = onComplete;
+}
+
+function startNextQuestion(){
+  const q = quiz[currentIndex];
+  const qWord = i18n[currentLang].qPrefix;
+  questionCounter.textContent = `${qWord} ${currentIndex + 1} / ${quiz.length}`;
+  questionText.textContent = q.question;
+  projectiles = [];
+  resolved = false;
+  spawnUfos(q);
+}
+
+let lastTime = 0;
+function loop(now){
+  if(!gameActive) return;
+  const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+  lastTime = now;
+  try{
+    update(dt, now);
+    render();
+  } catch(err){
+    console.error('Study Invaders render error:', err);
+    gameActive = false;
+    showFeedback('⚠️ Ralat melukis permainan. Sila muat semula.', 'bad');
+    return;
+  }
+  requestAnimationFrame(loop);
+}
+
+function update(dt, now){
+  if(keys.left) ship.x -= ship.speed * dt;
+  if(keys.right) ship.x += ship.speed * dt;
+  const mouseRecentlyActive = mouseX !== null && (now - lastMouseMoveTime) < MOUSE_IDLE_TIMEOUT;
+  if(!keys.left && !keys.right && mouseRecentlyActive){
+    ship.x += (mouseX - ship.x) * Math.min(1, dt * 8);
+  }
+  ship.x = Math.max(ship.w / 2 + 4, Math.min(CW - ship.w / 2 - 4, ship.x));
+
+  const ENTER_SPEED = 340;
+  const t = now / 1000;
+  ufos.forEach(u => {
+    if(u.state === 'entering'){
+      u.y += ENTER_SPEED * dt;
+      if(u.y >= u.homeY){ u.y = u.homeY; u.state = 'active'; }
+    } else if(u.state === 'exiting'){
+      u.y += EXIT_SPEED * dt;
+    } else if(u.state === 'flyPast'){
+      u.y += FLY_PAST_SPEED * dt;
+    } else if(u.state === 'active' && !resolved){
+      u.x = u.homeX + Math.sin(t * 0.8 + u.phase) * driftAmplitude;
+    }
+  });
+  ufos.forEach(u => {
+    u.labelEl.style.left = u.x + 'px';
+    u.labelEl.style.top = (u.y + 22) + 'px';
+    u.labelEl.style.opacity = (u.y < -20 || u.y > CH + 20) ? '0' : '1';
+  });
+
+  if(exitCompleteCallback && ufos.length > 0 && ufos.every(u => (u.state !== 'exiting' && u.state !== 'flyPast') || u.y > CH + 40)){
+    const cb = exitCompleteCallback;
+    exitCompleteCallback = null;
+    cb();
+  }
+
+  updateExplosions(dt);
+
+  gameStars.forEach(s => {
+    s.y += s.speed * dt;
+    if(s.y > CH){ s.y = 0; s.x = Math.random() * CW; }
+  });
+
+  projectiles.forEach(p => p.y -= PROJECTILE_SPEED * dt);
+  projectiles = projectiles.filter(p => p.y > -20);
+
+  if(!resolved){
+    outer:
+    for(const p of projectiles){
+      for(const u of ufos){
+        if(!u.alive || u.state !== 'active') continue;
+        if(Math.abs(p.x - u.x) < 26 && Math.abs(p.y - u.y) < 20){
+          p.y = -9999;
+          resolveHit(u);
+          break outer;
+        }
+      }
+    }
+    projectiles = projectiles.filter(p => p.y > -999);
+  }
+}
+
+function render(){
+  ctx.clearRect(0, 0, CW, CH);
+
+  gameStars.forEach(s => {
+    const twinkle = Math.sin(performance.now() / 500 + s.twinklePhase) * 0.35 + 0.65;
+    ctx.globalAlpha = twinkle;
+    ctx.fillStyle = '#e9e6f7';
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  });
+  ctx.globalAlpha = 1;
+
+  projectiles.forEach(p => {
+    ctx.fillStyle = '#4ce0d2';
+    ctx.shadowColor = '#4ce0d2';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(p.x - 2, p.y - 8, 4, 12);
+    ctx.shadowBlur = 0;
+  });
+
+  ufos.forEach(u => {
+    if(u.resultState){
+      ctx.beginPath();
+      ctx.fillStyle = u.resultState === 'correct' ? 'rgba(76,224,210,0.25)' : 'rgba(255,84,112,0.25)';
+      ctx.arc(u.x, u.y, 30, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    drawUfo(u.x, u.y, u.resultState);
+  });
+
+  drawShip(ship.x, ship.y);
+  renderExplosions();
+}
+
+function endMission(completed){
+  gameActive = false;
+  gameView.style.display = 'none';
+  const correctCount = resultsLog.filter(r => r.correct).length;
+  sessionStorage.setItem('si_quizResults', JSON.stringify({
+    score,
+    total: quiz.length,
+    correctCount,
+    log: resultsLog,
+    completed
+  }));
+  gameOverView.style.display = 'block';
+  const titleText = currentLang === 'bm'
+    ? (completed ? 'MISI SELESAI' : 'MISI GAGAL')
+    : (completed ? 'MISSION COMPLETE' : 'MISSION FAILED');
+  const scoreText = currentLang === 'bm'
+    ? `Markah: ${score} — ${correctCount}/${quiz.length} betul`
+    : `Score: ${score} — ${correctCount}/${quiz.length} correct`;
+
+  document.getElementById('gameOverTitle').textContent = titleText;
+  document.getElementById('gameOverScore').textContent = scoreText;
+}
+
+setLanguage(currentLang);
+
+document.getElementById('mainMenuBtn').addEventListener('click', () => {
+  if(gameActive){
+    if(confirm(currentLang === 'bm' ? 'Kembali ke menu utama? Kemajuan anda akan hilang.' : 'Return to main menu? Your progress will be lost.')){
+      window.location.href = 'index.html';
+    }
+  } else {
+    window.location.href = 'index.html';
+  }
+});
+
+document.getElementById('backBriefingBtn').addEventListener('click', () => {
+  if(gameActive){
+    if(confirm(currentLang === 'bm' ? 'Kembali ke taklimat? Kemajuan misi anda akan hilang.' : 'Return to briefing? Your mission progress will be lost.')){
+      window.location.href = 'learn.html';
+    }
+  } else {
+    window.location.href = 'learn.html';
+  }
+});
+
+document.getElementById('toResultsBtn').addEventListener('click', () => {
+  window.location.href = 'results.html';
+});
+
+async function startMission(){
+  difficultyView.style.display = 'none';
+  loadingView.style.display = 'block';
+  errorView.style.display = 'none';
+  gameView.style.display = 'none';
+  gameOverView.style.display = 'none';
+  startLoadingFlourishes();
+
+  try{
+    quiz = await generateQuiz();
+    stopLoadingFlourishes();
+    loadingView.style.display = 'none';
+    gameView.style.display = 'block';
+
+    score = 0;
+    lives = LIVES_COUNT;
+    currentIndex = 0;
+    resultsLog = [];
+    resolved = false;
+    projectiles = [];
+    scoreVal.textContent = '0';
+    renderLives();
+
+    resizeCanvas();
+    resetShip();
+
+    const q = quiz[currentIndex];
+    const qWord = i18n[currentLang].qPrefix;
+    questionCounter.textContent = `${qWord} 1 / ${quiz.length}`;
+    questionText.textContent = q.question;
+    spawnUfos(q);
+
+    gameActive = true;
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  } catch(err){
+    console.error(err);
+    stopLoadingFlourishes();
+    loadingView.style.display = 'none';
+    errorView.style.display = 'block';
+    document.getElementById('errorMessage').textContent =
+      (currentLang === 'bm' ? 'Penyediaan misi gagal: ' : 'Mission prep failed: ') + err.message;
+  }
+}
+
+document.getElementById('retryBtn').addEventListener('click', startMission);
+
+document.querySelectorAll('.difficultyCard').forEach(card => {
+  card.addEventListener('click', () => {
+    selectedDifficulty = card.dataset.difficulty;
+    QUESTION_COUNT = parseInt(card.dataset.count, 10);
+    startMission();
+  });
+});
+
+if(note && learnData){
+  difficultyView.style.display = 'block';
+}
+</script>
+
+</body>
+</html>
