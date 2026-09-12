@@ -8,6 +8,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <style>
+  .navBtnGroup{ display:flex; gap:10px; align-items:center; }
+  
+  .langBar { display: flex; gap: 4px; }
+  .langBtn {
+    background: var(--void-deep);
+    border: 1px solid var(--panel-edge);
+    color: var(--ink-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .langBtn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(76,224,210,0.1); }
+
   .scoreHero{ text-align:center; margin-bottom:22px; }
   .scoreHero .bigScore{
     font-family:'Press Start 2P', monospace;
@@ -57,10 +73,16 @@
   <div class="cabinet wide">
 
     <div class="topBar">
-      <button class="btnGhost" id="menuBtn">&larr; Menu</button>
+      <div class="navBtnGroup">
+        <button class="btnGhost" id="menuBtn">&larr; Menu</button>
+        <div class="langBar">
+          <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
+          <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+        </div>
+      </div>
       <span class="agentTag">Agent: <span id="agentName">—</span></span>
     </div>
-    <h2 style="text-align:center;">MISSION RESULTS</h2>
+    <h2 style="text-align:center;" id="t_title">MISSION RESULTS</h2>
 
     <div class="scoreHero">
       <div class="bigScore" id="bigScore">0</div>
@@ -68,7 +90,7 @@
     </div>
 
     <div class="breakdownSection">
-      <h3>By Topic</h3>
+      <h3 id="t_byTopic">By Topic</h3>
       <div id="topicBreakdown"></div>
     </div>
 
@@ -84,6 +106,33 @@
 
 <script src="assets/starfield.js"></script>
 <script>
+const i18n = {
+  en: {
+    menuBtn: "&larr; Menu",
+    title: "MISSION RESULTS",
+    byTopic: "By Topic",
+    menuBtnBottom: "Back to Menu",
+    retryBtn: "Try Another Mission",
+    correct: "correct",
+    complete: "Mission Complete",
+    failed: "Mission Failed",
+    noData: "No topic data available for this mission."
+  },
+  bm: {
+    menuBtn: "&larr; Menu",
+    title: "KEPUTUSAN MISI",
+    byTopic: "Mengikut Topik",
+    menuBtnBottom: "Kembali ke Menu",
+    retryBtn: "Cuba Misi Lain",
+    correct: "betul",
+    complete: "Misi Selesai",
+    failed: "Misi Gagal",
+    noData: "Tiada data topik tersedia untuk misi ini."
+  }
+};
+
+let currentLang = localStorage.getItem('si_lang') || 'en';
+
 const username = sessionStorage.getItem('si_username');
 const resultsRaw = sessionStorage.getItem('si_quizResults');
 
@@ -94,12 +143,34 @@ if(!username || !resultsRaw){
 const results = resultsRaw ? JSON.parse(resultsRaw) : null;
 document.getElementById('agentName').textContent = username || '—';
 
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('si_lang', lang);
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
+
+  const dict = i18n[lang];
+  document.getElementById('menuBtn').innerHTML = dict.menuBtn;
+  document.getElementById('t_title').textContent = dict.title;
+  document.getElementById('t_byTopic').textContent = dict.byTopic;
+  document.getElementById('menuBtnBottom').textContent = dict.menuBtnBottom;
+  document.getElementById('retryBtn').textContent = dict.retryBtn;
+
+  if(results){
+    const statusText = results.completed ? dict.complete : dict.failed;
+    document.getElementById('scoreSub').textContent =
+      `${results.correctCount} / ${results.total} ${dict.correct} — ${statusText}`;
+      
+    const breakdown = document.getElementById('topicBreakdown');
+    if(!results.log || results.log.length === 0){
+      breakdown.innerHTML = `<p style="color:var(--ink-dim); font-size:16px;">${dict.noData}</p>`;
+    }
+  }
+}
+
 if(results){
   document.getElementById('bigScore').textContent = results.score;
-  document.getElementById('scoreSub').textContent =
-    `${results.correctCount} / ${results.total} correct — ${results.completed ? 'Mission Complete' : 'Mission Failed'}`;
 
-  // Group the per-question log by subtopic
   const bySubtopic = {};
   (results.log || []).forEach(entry => {
     if(!bySubtopic[entry.subtopic]) bySubtopic[entry.subtopic] = { correct: 0, total: 0 };
@@ -108,6 +179,7 @@ if(results){
   });
 
   const breakdown = document.getElementById('topicBreakdown');
+  breakdown.innerHTML = '';
   Object.entries(bySubtopic).forEach(([topic, stats]) => {
     const pct = Math.round((stats.correct / stats.total) * 100);
     const row = document.createElement('div');
@@ -119,11 +191,9 @@ if(results){
     `;
     breakdown.appendChild(row);
   });
-
-  if(Object.keys(bySubtopic).length === 0){
-    breakdown.innerHTML = '<p style="color:var(--ink-dim); font-size:16px;">No topic data available for this mission.</p>';
-  }
 }
+
+setLanguage(currentLang);
 
 document.getElementById('menuBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
 document.getElementById('menuBtnBottom').addEventListener('click', () => { window.location.href = 'index.html'; });
