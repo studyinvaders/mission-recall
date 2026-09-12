@@ -48,6 +48,7 @@
     font-size:16px;
     line-height:1.4;
   }
+  .navBtnGroup{ display:flex; gap:10px; }
 </style>
 </head>
 <body>
@@ -59,7 +60,10 @@
   <div class="cabinet wide">
 
     <div class="topBar">
-      <button class="btnGhost" id="backBtn">&larr; Menu</button>
+      <div class="navBtnGroup">
+        <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
+        <button class="btnGhost" id="backBtn">Edit Notes</button>
+      </div>
       <span class="agentTag">Agent: <span id="agentName">—</span></span>
     </div>
     <h2>MISSION BRIEFING</h2>
@@ -97,7 +101,6 @@ if(!username || !noteRaw || !learnDataRaw){
 }
 
 const learnData = learnDataRaw ? JSON.parse(learnDataRaw) : null;
-
 document.getElementById('agentName').textContent = username || '—';
 
 if(learnData){
@@ -126,6 +129,9 @@ if(learnData){
   });
 }
 
+document.getElementById('mainMenuBtn').addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
 document.getElementById('backBtn').addEventListener('click', () => {
   window.location.href = 'index.html';
 });
