@@ -78,6 +78,7 @@
         <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
         <button class="btnGhost" id="backBtn">Edit Notes</button>
         <div class="langBar">
+          <button class="langBtn" id="muteBtn">🔊 SOUND</button>
           <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
           <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
         </div>
@@ -109,6 +110,7 @@
 </div>
 
 <script src="assets/starfield.js"></script>
+<script src="assets/audio.js"></script>
 <script>
 const i18n = {
   en: {
@@ -148,6 +150,14 @@ function setLanguage(lang) {
   document.getElementById('t_keywords').textContent = dict.keywords;
   document.getElementById('launchBtn').innerHTML = dict.launchBtn;
 }
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', () => {
+  const isMuted = audioEngine.toggleMute();
+  muteBtn.textContent = isMuted ? '🔇 MUTED' : '🔊 SOUND';
+  muteBtn.classList.toggle('active', !isMuted);
+});
+if (audioEngine.isMuted) muteBtn.textContent = '🔇 MUTED';
 
 const username = sessionStorage.getItem('si_username');
 const noteRaw = sessionStorage.getItem('si_note');
@@ -190,7 +200,10 @@ setLanguage(currentLang);
 
 document.getElementById('mainMenuBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
 document.getElementById('backBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
-document.getElementById('launchBtn').addEventListener('click', () => { window.location.href = 'play.html'; });
+document.getElementById('launchBtn').addEventListener('click', () => {
+  audioEngine.playPowerUp();
+  setTimeout(() => { window.location.href = 'play.html'; }, 300);
+});
 </script>
 
 </body>
