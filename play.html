@@ -11,7 +11,21 @@
   #difficultyView, #loadingView, #errorView, #gameView, #gameOverView{ display:none; }
   #errorView p{ font-size:18px; color:var(--ink-dim); margin-bottom:20px; text-align:center; }
 
-  .navGroup { display: flex; gap: 8px; }
+  .navGroup { display: flex; gap: 8px; align-items: center; }
+
+  .langBar { display: flex; gap: 4px; }
+  .langBtn {
+    background: var(--void-deep);
+    border: 1px solid var(--panel-edge);
+    color: var(--ink-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .langBtn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(76,224,210,0.1); }
 
   .gameHud{
     display:flex;
@@ -135,30 +149,34 @@
       <div class="navGroup">
         <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
         <button class="btnGhost" id="backBriefingBtn">Back to Briefing</button>
+        <div class="langBar">
+          <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
+          <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+        </div>
       </div>
       <span class="agentTag">Agent: <span id="agentName">—</span></span>
     </div>
-    <h2 style="text-align:center;">MISSION: DEFEND</h2>
+    <h2 style="text-align:center;" id="t_mainTitle">MISSION: DEFEND</h2>
 
     <!-- Difficulty selection state -->
     <div id="difficultyView">
-      <p style="text-align:center; color:var(--ink-dim); font-size:17px; margin:0 0 18px;">Choose your mission difficulty</p>
+      <p style="text-align:center; color:var(--ink-dim); font-size:17px; margin:0 0 18px;" id="t_diffSubtitle">Choose your mission difficulty</p>
       <div class="difficultyGrid">
         <div class="difficultyCard easy" data-difficulty="easy" data-count="10">
           <div class="difficultyName">EASY</div>
-          <div class="difficultyDesc">10 questions</div>
+          <div class="difficultyDesc" id="t_easyDesc">10 questions</div>
         </div>
         <div class="difficultyCard normal" data-difficulty="normal" data-count="15">
           <div class="difficultyName">NORMAL</div>
-          <div class="difficultyDesc">15 questions</div>
+          <div class="difficultyDesc" id="t_normalDesc">15 questions</div>
         </div>
         <div class="difficultyCard hard" data-difficulty="hard" data-count="20">
           <div class="difficultyName">HARD</div>
-          <div class="difficultyDesc">20 questions</div>
+          <div class="difficultyDesc" id="t_hardDesc">20 questions</div>
         </div>
         <div class="difficultyCard endless" data-difficulty="endless" data-count="30">
           <div class="difficultyName">ENDLESS</div>
-          <div class="difficultyDesc">Survive as long as you can</div>
+          <div class="difficultyDesc" id="t_endlessDesc">Survive as long as you can</div>
         </div>
       </div>
     </div>
@@ -181,11 +199,11 @@
     <div id="gameView">
       <div class="gameHud">
         <div class="livesRow" id="livesRow"></div>
-        <div class="hudScore">Score: <span id="scoreVal">0</span></div>
+        <div class="hudScore"><span id="t_scoreLabel">Score</span>: <span id="scoreVal">0</span></div>
       </div>
       <div class="questionCounter" id="questionCounter">Question 1 / 8</div>
       <div class="questionText" id="questionText"></div>
-      <div class="controlHint">Move: A/D or mouse &middot; Shoot: Space or click</div>
+      <div class="controlHint" id="t_controlHint">Move: A/D or mouse &middot; Shoot: Space or click</div>
 
       <div class="arena" id="arena">
         <canvas id="gameCanvas"></canvas>
@@ -209,6 +227,68 @@
 <script src="assets/starfield.js"></script>
 <script src="assets/ai.js"></script>
 <script>
+const i18n = {
+  en: {
+    mainMenu: "&larr; Main Menu",
+    backBriefing: "Back to Briefing",
+    mainTitle: "MISSION: DEFEND",
+    diffSubtitle: "Choose your mission difficulty",
+    easyDesc: "10 questions",
+    normalDesc: "15 questions",
+    hardDesc: "20 questions",
+    endlessDesc: "Survive as long as you can",
+    scoreLabel: "Score",
+    controlHint: "Move: A/D or mouse &middot; Shoot: Space or click",
+    seeResults: "SEE RESULTS &gt;",
+    retryBtn: "Try again",
+    loading: ["Loading ammo crates...", "Calibrating targeting reticle...", "Briefing squadron...", "Charting UFO formations...", "Warming up the engines...", "Almost ready, Agent..."],
+    correctLines: ['Direct hit!', 'Nailed it!', 'Bullseye!', 'Target down!'],
+    wrongLines: ['Missed the mark.', 'Wrong signal.', 'That one got away.', 'Not quite.'],
+    qPrefix: "Question"
+  },
+  bm: {
+    mainMenu: "&larr; Menu Utama",
+    backBriefing: "Kembali ke Taklimat",
+    mainTitle: "MISI: PERTAHANKAN",
+    diffSubtitle: "Pilih tahap kesukaran misi",
+    easyDesc: "10 soalan",
+    normalDesc: "15 soalan",
+    hardDesc: "20 soalan",
+    endlessDesc: "Bertahan seberapa lama yang boleh",
+    scoreLabel: "Markah",
+    controlHint: "Gerak: A/D atau tetikus &middot; Tembak: Ruang (Space) atau klik",
+    seeResults: "LIHAT KEPUTUSAN &gt;",
+    retryBtn: "Cuba lagi",
+    loading: ["Memuatkan kotak peluru...", "Melaraskan sasaran...", "Memberi taklimat skuadron...", "Memetakan formasi UFO...", "Memanaskan enjin...", "Hampir bersedia, Ejen..."],
+    correctLines: ['Tembakan tepat!', 'Berjaya!', 'Sasaran musnah!', 'Tepat sekali!'],
+    wrongLines: ['Tersasar.', 'Isyarat salah.', 'Tembakan terlepas.', 'Kurang tepat.'],
+    qPrefix: "Soalan"
+  }
+};
+
+let currentLang = localStorage.getItem('si_lang') || 'en';
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('si_lang', lang);
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
+
+  const dict = i18n[lang];
+  document.getElementById('mainMenuBtn').innerHTML = dict.mainMenu;
+  document.getElementById('backBriefingBtn').textContent = dict.backBriefing;
+  document.getElementById('t_mainTitle').textContent = dict.mainTitle;
+  document.getElementById('t_diffSubtitle').textContent = dict.diffSubtitle;
+  document.getElementById('t_easyDesc').textContent = dict.easyDesc;
+  document.getElementById('t_normalDesc').textContent = dict.normalDesc;
+  document.getElementById('t_hardDesc').textContent = dict.hardDesc;
+  document.getElementById('t_endlessDesc').textContent = dict.endlessDesc;
+  document.getElementById('t_scoreLabel').textContent = dict.scoreLabel;
+  document.getElementById('t_controlHint').innerHTML = dict.controlHint;
+  document.getElementById('toResultsBtn').innerHTML = dict.seeResults;
+  document.getElementById('retryBtn').textContent = dict.retryBtn;
+}
+
 const username = sessionStorage.getItem('si_username');
 const noteRaw = sessionStorage.getItem('si_note');
 const learnDataRaw = sessionStorage.getItem('si_learnData');
@@ -250,22 +330,14 @@ loadSprite('ufoDefault', 'assets/sprites/ufo_default.png');
 loadSprite('ufoCorrect', 'assets/sprites/ufo_correct.png');
 loadSprite('ufoWrong', 'assets/sprites/ufo_wrong.png');
 
-// ---------- Loading flourishes ----------
-const LOADING_MESSAGES = [
-  'Loading ammo crates...',
-  'Calibrating targeting reticle...',
-  'Briefing squadron...',
-  'Charting UFO formations...',
-  'Warming up the engines...',
-  'Almost ready, Agent...'
-];
 let statusIdx = 0, statusInterval = null, blipInterval = null;
 function startLoadingFlourishes(){
   statusIdx = 0;
-  loadingStatus.textContent = LOADING_MESSAGES[0];
+  const msgs = i18n[currentLang].loading;
+  loadingStatus.textContent = msgs[0];
   statusInterval = setInterval(() => {
-    statusIdx = (statusIdx + 1) % LOADING_MESSAGES.length;
-    loadingStatus.textContent = LOADING_MESSAGES[statusIdx];
+    statusIdx = (statusIdx + 1) % msgs.length;
+    loadingStatus.textContent = msgs[statusIdx];
   }, 1700);
   blipInterval = setInterval(() => {
     const blip = document.createElement('div');
@@ -281,13 +353,17 @@ function stopLoadingFlourishes(){
   clearInterval(blipInterval);
 }
 
-// ---------- Quiz generation ----------
 let QUESTION_COUNT = 10;
 let selectedDifficulty = 'easy';
 
 function buildQuizPrompt(){
   const subtopics = learnData.keywords ? learnData.keywords.map(k => k.term) : [];
-  return `You are creating a multiple-choice quiz to test a student on their teacher's notes.
+  const langInstruction = currentLang === 'bm'
+    ? "OUTPUT LANGUAGE: Bahasa Melayu. Write all questions and options in Bahasa Melayu."
+    : "OUTPUT LANGUAGE: English. Write all questions and options in English.";
+
+  return `${langInstruction}
+You are creating a multiple-choice quiz to test a student on their teacher's notes.
 Based ONLY on the attached notes (do not invent facts not supported by them), create exactly ${QUESTION_COUNT} multiple-choice questions.
 
 Each question must use exactly one subtopic tag chosen from this fixed list (use the exact spelling given): ${JSON.stringify(subtopics)}
@@ -319,11 +395,10 @@ let quiz = [];
 async function generateQuiz(){
   const raw = await askAI(buildQuizPrompt(), note);
   const cleaned = validateQuiz(raw);
-  if(cleaned.length === 0) throw new Error('No valid questions came back — try again.');
+  if(cleaned.length === 0) throw new Error(currentLang === 'bm' ? 'Tiada soalan sah diterimanya — cuba lagi.' : 'No valid questions came back — try again.');
   return cleaned;
 }
 
-// ---------- Game state ----------
 let currentIndex = 0;
 let score = 0;
 const LIVES_COUNT = 5;
@@ -332,8 +407,6 @@ let resultsLog = [];
 let resolved = false;
 let gameActive = false;
 
-const CORRECT_LINES = ['Direct hit!', 'Nailed it!', 'Bullseye!', 'Target down!'];
-const WRONG_LINES = ['Missed the mark.', 'Wrong signal.', 'That one got away.', 'Not quite.'];
 function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
 function renderLives(){
@@ -359,9 +432,6 @@ function hideFeedback(){
   feedbackBanner.className = 'feedbackBanner';
 }
 
-// ==========================================================
-//  CANVAS SHOOTER ENGINE
-// ==========================================================
 let CW = 0, CH = 0;
 
 function resizeCanvas(){
@@ -559,6 +629,7 @@ function resolveHit(hitUfo){
   resolved = true;
   const q = quiz[currentIndex];
   const correct = hitUfo.isCorrect;
+  const dict = i18n[currentLang];
 
   spawnExplosion(hitUfo.x, hitUfo.y, correct ? '#4ce0d2' : '#ff5470');
   if(hitUfo.labelEl) hitUfo.labelEl.remove();
@@ -572,12 +643,13 @@ function resolveHit(hitUfo){
   if(correct){
     score += 10;
     scoreVal.textContent = score;
-    showFeedback(pickRandom(CORRECT_LINES), 'good');
+    showFeedback(pickRandom(dict.correctLines), 'good');
     resultsLog.push({ subtopic: q.subtopic, correct: true });
   } else {
     lives--;
     renderLivesLoss();
-    showFeedback(`${pickRandom(WRONG_LINES)} Correct answer: "${q.options[q.correctIndex]}"`, 'bad');
+    const correctText = currentLang === 'bm' ? `Jawapan betul: "${q.options[q.correctIndex]}"` : `Correct answer: "${q.options[q.correctIndex]}"`;
+    showFeedback(`${pickRandom(dict.wrongLines)} ${correctText}`, 'bad');
     resultsLog.push({ subtopic: q.subtopic, correct: false });
   }
 
@@ -604,7 +676,8 @@ function beginExitSweep(onComplete){
 
 function startNextQuestion(){
   const q = quiz[currentIndex];
-  questionCounter.textContent = `Question ${currentIndex + 1} / ${quiz.length}`;
+  const qWord = i18n[currentLang].qPrefix;
+  questionCounter.textContent = `${qWord} ${currentIndex + 1} / ${quiz.length}`;
   questionText.textContent = q.question;
   projectiles = [];
   resolved = false;
@@ -622,7 +695,7 @@ function loop(now){
   } catch(err){
     console.error('Study Invaders render error:', err);
     gameActive = false;
-    showFeedback('⚠️ Something went wrong drawing the game. Try refreshing.', 'bad');
+    showFeedback('⚠️ Ralat melukis permainan. Sila muat semula.', 'bad');
     return;
   }
   requestAnimationFrame(loop);
@@ -732,15 +805,22 @@ function endMission(completed){
     completed
   }));
   gameOverView.style.display = 'block';
-  document.getElementById('gameOverTitle').textContent = completed ? 'MISSION COMPLETE' : 'MISSION FAILED';
-  document.getElementById('gameOverScore').textContent =
-    `Score: ${score} — ${correctCount}/${quiz.length} correct`;
+  const titleText = currentLang === 'bm'
+    ? (completed ? 'MISI SELESAI' : 'MISI GAGAL')
+    : (completed ? 'MISSION COMPLETE' : 'MISSION FAILED');
+  const scoreText = currentLang === 'bm'
+    ? `Markah: ${score} — ${correctCount}/${quiz.length} betul`
+    : `Score: ${score} — ${correctCount}/${quiz.length} correct`;
+
+  document.getElementById('gameOverTitle').textContent = titleText;
+  document.getElementById('gameOverScore').textContent = scoreText;
 }
 
-// Navigation Listeners
+setLanguage(currentLang);
+
 document.getElementById('mainMenuBtn').addEventListener('click', () => {
   if(gameActive){
-    if(confirm('Return to main menu? Your progress will be lost.')){
+    if(confirm(currentLang === 'bm' ? 'Kembali ke menu utama? Kemajuan anda akan hilang.' : 'Return to main menu? Your progress will be lost.')){
       window.location.href = 'index.html';
     }
   } else {
@@ -750,7 +830,7 @@ document.getElementById('mainMenuBtn').addEventListener('click', () => {
 
 document.getElementById('backBriefingBtn').addEventListener('click', () => {
   if(gameActive){
-    if(confirm('Return to briefing? Your mission progress will be lost.')){
+    if(confirm(currentLang === 'bm' ? 'Kembali ke taklimat? Kemajuan misi anda akan hilang.' : 'Return to briefing? Your mission progress will be lost.')){
       window.location.href = 'learn.html';
     }
   } else {
@@ -789,7 +869,8 @@ async function startMission(){
     resetShip();
 
     const q = quiz[currentIndex];
-    questionCounter.textContent = `Question 1 / ${quiz.length}`;
+    const qWord = i18n[currentLang].qPrefix;
+    questionCounter.textContent = `${qWord} 1 / ${quiz.length}`;
     questionText.textContent = q.question;
     spawnUfos(q);
 
@@ -802,7 +883,7 @@ async function startMission(){
     loadingView.style.display = 'none';
     errorView.style.display = 'block';
     document.getElementById('errorMessage').textContent =
-      'Mission prep failed: ' + err.message;
+      (currentLang === 'bm' ? 'Penyediaan misi gagal: ' : 'Mission prep failed: ') + err.message;
   }
 }
 
