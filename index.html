@@ -34,6 +34,35 @@
     0% { transform: translateY(0px); }
     100% { transform: translateY(-12px); }
   }
+
+  /* Language Switcher & Modal */
+  .langBar { display: flex; gap: 6px; position: absolute; top: 16px; right: 16px; z-index: 10; }
+  .langBtn {
+    background: var(--void-deep);
+    border: 1px solid var(--panel-edge);
+    color: var(--ink-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .langBtn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(76,224,210,0.1); }
+  
+  .langModalOverlay {
+    position: fixed; inset: 0; background: rgba(5,6,18,0.85);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .langModal {
+    background: var(--panel); border: 2px solid var(--cyan);
+    border-radius: 12px; padding: 24px; text-align: center; max-width: 360px; width: 90%;
+    box-shadow: 0 0 20px rgba(76,224,210,0.3);
+  }
+  .langModal h3 { font-family: 'Press Start 2P', monospace; font-size: 14px; color: var(--amber); margin-bottom: 12px; }
+  .langModal p { font-size: 16px; color: var(--ink); margin-bottom: 20px; }
+  .langOptionBtns { display: flex; gap: 12px; justify-content: center; }
+  .langOptionBtns button { flex: 1; padding: 12px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -41,41 +70,57 @@
 <canvas id="starfield"></canvas>
 <div id="crt"></div>
 
+<!-- Language Pop-up Modal -->
+<div class="langModalOverlay" id="langModal">
+  <div class="langModal">
+    <h3>SELECT LANGUAGE / PILIH BAHASA</h3>
+    <p>Choose your preferred language for the mission:</p>
+    <div class="langOptionBtns">
+      <button class="btnPrimary ready" onclick="setLanguage('en')">English</button>
+      <button class="btnPrimary ready" onclick="setLanguage('bm')">Bahasa Melayu</button>
+    </div>
+  </div>
+</div>
+
 <div class="stage">
-  <div class="cabinet">
+  <div class="cabinet" style="position: relative;">
+
+    <!-- Language Quick Switcher -->
+    <div class="langBar">
+      <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
+      <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+    </div>
 
     <div class="logoWrap"><img src="assets/sprites/logo.png" alt="Study Invaders: Mission Recall"></div>
 
-    <!-- Animated Floating Sprites Header -->
     <div class="spriteShowcase">
       <img src="assets/sprites/ufo_correct.png" class="ufo1" alt="UFO Correct">
       <img src="assets/sprites/rocket.png" class="rocket" alt="Rocket Ship">
       <img src="assets/sprites/ufo_wrong.png" class="ufo2" alt="UFO Wrong">
     </div>
 
-    <p class="tagline">Upload your notes. Defend what you've learned.</p>
+    <p class="tagline" id="t_tagline">Upload your notes. Defend what you've learned.</p>
 
-    <!-- Upload / form state -->
     <div id="formView">
       <fieldset>
-        <label for="callsign">Agent callsign</label>
+        <label for="callsign" id="t_callsignLabel">Agent callsign</label>
         <input type="text" id="callsign" maxlength="24" placeholder="Your name">
       </fieldset>
 
       <fieldset>
-        <label>Upload your notes (.txt, .md, image, or PDF)</label>
+        <label id="t_uploadLabel">Upload your notes (.txt, .md, image, or PDF)</label>
         <div class="uploadZone" id="uploadZone">
           <div class="zoneLabel" id="zoneLabel">Tap to choose a file</div>
           <div class="zoneHint" id="zoneHint">or drag one in</div>
           <input type="file" id="fileInput" accept=".txt,.md,application/pdf,image/*">
         </div>
-        <div class="fieldNote">PDFs: only the first 15 pages are used.</div>
+        <div class="fieldNote" id="t_pdfNote">PDFs: only the first 15 pages are used.</div>
       </fieldset>
 
-      <div class="orDivider">or</div>
+      <div class="orDivider" id="t_or">or</div>
 
       <fieldset>
-        <label for="pasteNotes">Paste your notes</label>
+        <label for="pasteNotes" id="t_pasteLabel">Paste your notes</label>
         <textarea id="pasteNotes" rows="5" placeholder="Paste text here instead of uploading a file"></textarea>
       </fieldset>
 
@@ -83,7 +128,6 @@
       <div id="status"></div>
     </div>
 
-    <!-- Loading state -->
     <div id="loadingView" style="text-align:center;">
       <div class="radarLoader">
         <div class="radarSweep"></div>
@@ -92,7 +136,6 @@
       <div id="loadingStatus" class="loadingStatusText">Reading your notes...</div>
     </div>
 
-    <!-- Error state -->
     <div id="errorView">
       <p id="errorMessage">Couldn't process that.</p>
       <button class="btnGhost" id="retryBtn">Try again</button>
@@ -106,6 +149,73 @@
 <script src="assets/starfield.js"></script>
 <script src="assets/ai.js"></script>
 <script>
+// Translation Dictionary
+const i18n = {
+  en: {
+    tagline: "Upload your notes. Defend what you've learned.",
+    callsignLabel: "Agent callsign",
+    callsignPlaceholder: "Your name",
+    uploadLabel: "Upload your notes (.txt, .md, image, or PDF)",
+    zoneLabel: "Tap to choose a file",
+    zoneHint: "or drag one in",
+    pdfNote: "PDFs: only the first 15 pages are used.",
+    or: "or",
+    pasteLabel: "Paste your notes",
+    pastePlaceholder: "Paste text here instead of uploading a file",
+    launchBtn: "LAUNCH MISSION",
+    retryBtn: "Try again",
+    loading: ["Scanning your notes...", "Briefing HQ...", "Decoding key concepts...", "Charting the mission...", "Calibrating the quiz core...", "Almost ready, Agent..."]
+  },
+  bm: {
+    tagline: "Muat naik nota anda. Pertahankan apa yang telah anda pelajari.",
+    callsignLabel: "Tanda Panggilan Ejen",
+    callsignPlaceholder: "Nama anda",
+    uploadLabel: "Muat naik nota anda (.txt, .md, imej, atau PDF)",
+    zoneLabel: "Tekan untuk pilih fail",
+    zoneHint: "atau seret fail ke sini",
+    pdfNote: "PDF: hanya 15 halaman pertama akan digunakan.",
+    or: "atau",
+    pasteLabel: "Tampal nota anda",
+    pastePlaceholder: "Tampal teks di sini daripada memuat naik fail",
+    launchBtn: "LANCARKAN MISI",
+    retryBtn: "Cuba lagi",
+    loading: ["Imbasan nota anda...", "Taklimat HQ...", "Nyahkod konsep utama...", "Peta misi...", "Melaraskan teras kuiz...", "Hampir bersedia, Ejen..."]
+  }
+};
+
+let currentLang = localStorage.getItem('si_lang') || null;
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('si_lang', lang);
+  document.getElementById('langModal').style.display = 'none';
+  
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
+
+  const dict = i18n[lang];
+  document.getElementById('t_tagline').textContent = dict.tagline;
+  document.getElementById('t_callsignLabel').textContent = dict.callsignLabel;
+  document.getElementById('callsign').placeholder = dict.callsignPlaceholder;
+  document.getElementById('t_uploadLabel').textContent = dict.uploadLabel;
+  if(!selectedFile){
+    document.getElementById('zoneLabel').textContent = dict.zoneLabel;
+    document.getElementById('zoneHint').textContent = dict.zoneHint;
+  }
+  document.getElementById('t_pdfNote').textContent = dict.pdfNote;
+  document.getElementById('t_or').textContent = dict.or;
+  document.getElementById('t_pasteLabel').textContent = dict.pasteLabel;
+  document.getElementById('pasteNotes').placeholder = dict.pastePlaceholder;
+  document.getElementById('launchBtn').textContent = dict.launchBtn;
+  document.getElementById('retryBtn').textContent = dict.retryBtn;
+}
+
+if(!currentLang) {
+  document.getElementById('langModal').style.display = 'flex';
+} else {
+  setLanguage(currentLang);
+}
+
 const callsignInput = document.getElementById('callsign');
 const uploadZone = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');
@@ -113,7 +223,6 @@ const zoneLabel = document.getElementById('zoneLabel');
 const zoneHint = document.getElementById('zoneHint');
 const pasteNotes = document.getElementById('pasteNotes');
 const launchBtn = document.getElementById('launchBtn');
-const status = document.getElementById('status');
 
 const formView = document.getElementById('formView');
 const loadingView = document.getElementById('loadingView');
@@ -122,8 +231,6 @@ const loadingStatus = document.getElementById('loadingStatus');
 const blipLayer = document.getElementById('blipLayer');
 
 let selectedFile = null;
-const DEFAULT_ZONE_LABEL = 'Tap to choose a file';
-const DEFAULT_ZONE_HINT = 'or drag one in';
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -133,8 +240,9 @@ function resetUploadZone(){
   selectedFile = null;
   fileInput.value = '';
   uploadZone.classList.remove('hasFile');
-  zoneLabel.textContent = DEFAULT_ZONE_LABEL;
-  zoneHint.textContent = DEFAULT_ZONE_HINT;
+  const dict = i18n[currentLang || 'en'];
+  zoneLabel.textContent = dict.zoneLabel;
+  zoneHint.textContent = dict.zoneHint;
 }
 
 function updateLaunchState(){
@@ -158,7 +266,7 @@ fileInput.addEventListener('change', async () => {
   if(pasteNotes.value.trim().length > 0) pasteNotes.value = '';
   uploadZone.classList.add('hasFile');
   zoneLabel.textContent = file.name;
-  zoneHint.textContent = 'Tap to choose a different file';
+  zoneHint.textContent = currentLang === 'bm' ? 'Tekan untuk pilih fail lain' : 'Tap to choose a different file';
   updateLaunchState();
 
   if(file.type === 'application/pdf'){
@@ -166,27 +274,22 @@ fileInput.addEventListener('change', async () => {
       const buf = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
       if(pdf.numPages > MAX_PDF_PAGES){
-        zoneHint.textContent = `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
+        zoneHint.textContent = currentLang === 'bm'
+          ? `Perhatian: hanya ${MAX_PDF_PAGES} daripada ${pdf.numPages} halaman akan digunakan.`
+          : `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
       }
     } catch(e){}
   }
 });
 
-const LOADING_MESSAGES = [
-  'Scanning your notes...',
-  'Briefing HQ...',
-  'Decoding key concepts...',
-  'Charting the mission...',
-  'Calibrating the quiz core...',
-  'Almost ready, Agent...'
-];
 let statusInterval = null, blipInterval = null, statusIdx = 0;
 function startLoadingFlourishes(){
   statusIdx = 0;
-  loadingStatus.textContent = LOADING_MESSAGES[0];
+  const msgs = i18n[currentLang || 'en'].loading;
+  loadingStatus.textContent = msgs[0];
   statusInterval = setInterval(() => {
-    statusIdx = (statusIdx + 1) % LOADING_MESSAGES.length;
-    loadingStatus.textContent = LOADING_MESSAGES[statusIdx];
+    statusIdx = (statusIdx + 1) % msgs.length;
+    loadingStatus.textContent = msgs[statusIdx];
   }, 1700);
   blipInterval = setInterval(() => {
     const blip = document.createElement('div');
@@ -260,7 +363,8 @@ async function buildNoteFromFile(file){
 }
 
 function buildBriefingPrompt(){
-  return `You are an assistant helping a student study from their own notes.
+  const langPrompt = currentLang === 'bm' ? "OUTPUT LANGUAGE: Bahasa Melayu." : "OUTPUT LANGUAGE: English.";
+  return `You are an assistant helping a student study from their own notes. ${langPrompt}
 Based ONLY on the attached notes (do not invent facts not supported by them), produce:
 1. A short summary (3-5 sentences) of what the notes cover.
 2. 4-8 key highlights as short bullet points.
@@ -299,7 +403,7 @@ launchBtn.addEventListener('click', async () => {
     loadingView.style.display = 'none';
     errorView.style.display = 'block';
     document.getElementById('errorMessage').textContent =
-      "Mission prep failed: " + err.message;
+      (currentLang === 'bm' ? "Penyediaan misi gagal: " : "Mission prep failed: ") + err.message;
   }
 });
 
