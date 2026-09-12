@@ -48,7 +48,21 @@
     font-size:16px;
     line-height:1.4;
   }
-  .navBtnGroup{ display:flex; gap:10px; }
+  .navBtnGroup{ display:flex; gap:10px; align-items:center; }
+  
+  .langBar { display: flex; gap: 4px; }
+  .langBtn {
+    background: var(--void-deep);
+    border: 1px solid var(--panel-edge);
+    color: var(--ink-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .langBtn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(76,224,210,0.1); }
 </style>
 </head>
 <body>
@@ -63,23 +77,27 @@
       <div class="navBtnGroup">
         <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
         <button class="btnGhost" id="backBtn">Edit Notes</button>
+        <div class="langBar">
+          <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
+          <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+        </div>
       </div>
       <span class="agentTag">Agent: <span id="agentName">—</span></span>
     </div>
-    <h2>MISSION BRIEFING</h2>
+    <h2 id="t_title">MISSION BRIEFING</h2>
 
     <div class="briefingSection">
-      <h3>Summary</h3>
+      <h3 id="t_summary">Summary</h3>
       <p class="summaryText" id="summaryText"></p>
     </div>
 
     <div class="briefingSection">
-      <h3>Key Highlights</h3>
+      <h3 id="t_highlights">Key Highlights</h3>
       <ul class="highlightList" id="highlightList"></ul>
     </div>
 
     <div class="briefingSection">
-      <h3>Keywords</h3>
+      <h3 id="t_keywords">Keywords</h3>
       <div class="keywordGrid" id="keywordGrid"></div>
     </div>
 
@@ -92,6 +110,45 @@
 
 <script src="assets/starfield.js"></script>
 <script>
+const i18n = {
+  en: {
+    mainMenu: "&larr; Main Menu",
+    editNotes: "Edit Notes",
+    title: "MISSION BRIEFING",
+    summary: "Summary",
+    highlights: "Key Highlights",
+    keywords: "Keywords",
+    launchBtn: "LAUNCH MISSION &gt;"
+  },
+  bm: {
+    mainMenu: "&larr; Menu Utama",
+    editNotes: "Edit Nota",
+    title: "TAKLIMAT MISI",
+    summary: "Ringkasan",
+    highlights: "Sorotan Utama",
+    keywords: "Kata Kunci",
+    launchBtn: "LANCARKAN MISI &gt;"
+  }
+};
+
+let currentLang = localStorage.getItem('si_lang') || 'en';
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('si_lang', lang);
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
+
+  const dict = i18n[lang];
+  document.getElementById('mainMenuBtn').innerHTML = dict.mainMenu;
+  document.getElementById('backBtn').textContent = dict.editNotes;
+  document.getElementById('t_title').textContent = dict.title;
+  document.getElementById('t_summary').textContent = dict.summary;
+  document.getElementById('t_highlights').textContent = dict.highlights;
+  document.getElementById('t_keywords').textContent = dict.keywords;
+  document.getElementById('launchBtn').innerHTML = dict.launchBtn;
+}
+
 const username = sessionStorage.getItem('si_username');
 const noteRaw = sessionStorage.getItem('si_note');
 const learnDataRaw = sessionStorage.getItem('si_learnData');
@@ -129,15 +186,11 @@ if(learnData){
   });
 }
 
-document.getElementById('mainMenuBtn').addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
-document.getElementById('backBtn').addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
-document.getElementById('launchBtn').addEventListener('click', () => {
-  window.location.href = 'play.html';
-});
+setLanguage(currentLang);
+
+document.getElementById('mainMenuBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('backBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('launchBtn').addEventListener('click', () => { window.location.href = 'play.html'; });
 </script>
 
 </body>
