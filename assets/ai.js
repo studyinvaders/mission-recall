@@ -1,11 +1,9 @@
 /* ============================================
-   AI helper: Puter.js with Rate Limit Handling
+   AI helper: Puter.js with Strict Rate-Limit Backoff
    ============================================ */
 
 const PUTER_CALL_TIMEOUT_MS = 30000;
-const PUTER_RETRY_DELAY_MS = 4000;
 
-// Strips stray markdown code fences the model sometimes adds, then parses JSON.
 function parseJsonResponse(raw){
   const cleaned = raw
     .trim()
@@ -16,7 +14,6 @@ function parseJsonResponse(raw){
   return JSON.parse(cleaned);
 }
 
-// Rejects if `promise` doesn't settle within `ms`
 function withTimeout(promise, ms, label){
   return Promise.race([
     promise,
@@ -40,7 +37,6 @@ function extractResponseText(response){
 }
 
 async function uploadBase64AndGetUrl(base64Data, filename, mimeType){
-  // Strip Data URL prefix if present (e.g., "data:image/jpeg;base64,")
   const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
   const byteChars = atob(cleanBase64);
   const byteNumbers = new Array(byteChars.length);
@@ -57,7 +53,7 @@ async function ensurePuterAuth(){
   try {
     const user = await puter.auth.getUser();
     if(user && user.username) return true;
-  } catch(e){ /* session expired — fall through */ }
+  } catch(e){ /* session expired */ }
 
   if(_authInFlight){
     try { return await _authInFlight; } catch(e){ return false; }
@@ -85,7 +81,7 @@ async function askAIViaPuter(prompt, note){
   const authed = await ensurePuterAuth();
   if(!authed) throw new Error('Puter sign-in did not complete');
 
-  // Passing 'undefined' first lets Puter use its default load-balanced route
+  // Passing undefined lets Puter load-balance on its standard default endpoint
   const PUTER_MODEL_FALLBACKS = [
     undefined, 
     'google/gemini-2.5-flash',
@@ -96,13 +92,10 @@ async function askAIViaPuter(prompt, note){
   for(let i = 0; i < PUTER_MODEL_FALLBACKS.length; i++){
     const model = PUTER_MODEL_FALLBACKS[i];
     
+    // Always force a 6-second cooldown on any attempt after the first failure
     if(i > 0){
-      const wasRateLimited = lastErr && /too many requests|rate.?limit/i.test(
-        lastErr.message || lastErr.error || JSON.stringify(lastErr)
-      );
-      // Back off longer (8s) if rate-limited, otherwise wait 3s before retrying
-      const delay = wasRateLimited ? 8000 : 3000;
-      await sleep(delay);
+      console.warn(`Waiting 6 seconds before retry attempt ${i + 1}...`);
+      await sleep(6000);
     }
 
     try {
