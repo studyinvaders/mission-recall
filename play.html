@@ -150,6 +150,7 @@
         <button class="btnGhost" id="mainMenuBtn">&larr; Main Menu</button>
         <button class="btnGhost" id="backBriefingBtn">Back to Briefing</button>
         <div class="langBar">
+          <button class="langBtn" id="muteBtn">🔊 SOUND</button>
           <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
           <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
         </div>
@@ -226,6 +227,7 @@
 
 <script src="assets/starfield.js"></script>
 <script src="assets/ai.js"></script>
+<script src="assets/audio.js"></script>
 <script>
 const i18n = {
   en: {
@@ -242,7 +244,7 @@ const i18n = {
     seeResults: "SEE RESULTS &gt;",
     retryBtn: "Try again",
     loading: ["Loading ammo crates...", "Calibrating targeting reticle...", "Briefing squadron...", "Charting UFO formations...", "Warming up the engines...", "Almost ready, Agent..."],
-    correctLines: ['Direct hit!', 'Shield activated!', 'Security key secured!', 'Target protected!'],
+    correctLines: ['Shield activated!', 'Security key secured!', 'Direct hit!', 'Target protected!'],
     wrongLines: ['Shield failure!', 'Wrong security key!', 'Decoy protected!', 'Data corrupted!'],
     qPrefix: "Question"
   },
@@ -288,6 +290,14 @@ function setLanguage(lang) {
   document.getElementById('toResultsBtn').innerHTML = dict.seeResults;
   document.getElementById('retryBtn').textContent = dict.retryBtn;
 }
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', () => {
+  const isMuted = audioEngine.toggleMute();
+  muteBtn.textContent = isMuted ? '🔇 MUTED' : '🔊 SOUND';
+  muteBtn.classList.toggle('active', !isMuted);
+});
+if (audioEngine.isMuted) muteBtn.textContent = '🔇 MUTED';
 
 const username = sessionStorage.getItem('si_username');
 const noteRaw = sessionStorage.getItem('si_note');
@@ -514,6 +524,7 @@ function tryFire(){
   const now = performance.now();
   if(now - lastFire < FIRE_COOLDOWN) return;
   lastFire = now;
+  audioEngine.playLaser(); // Play laser SFX
   projectiles.push({ x: ship.x, y: ship.y - ship.h / 2 });
 }
 
@@ -579,6 +590,8 @@ let particles = [];
 let explosionRings = [];
 
 function spawnExplosion(x, y, color){
+  audioEngine.playExplosion(); // Play retro explosion SFX
+
   const count = 12;
   for(let i = 0; i < count; i++){
     const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25);
@@ -913,6 +926,7 @@ document.getElementById('retryBtn').addEventListener('click', startMission);
 
 document.querySelectorAll('.difficultyCard').forEach(card => {
   card.addEventListener('click', () => {
+    audioEngine.playPowerUp(); // Play power-up sound when selecting difficulty
     selectedDifficulty = card.dataset.difficulty;
     QUESTION_COUNT = parseInt(card.dataset.count, 10);
     startMission();
