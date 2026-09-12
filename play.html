@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<script src="https://js.puter.com/v2/"></script>
 <style>
   #difficultyView, #loadingView, #errorView, #gameView, #gameOverView{ display:none; }
   #errorView p{ font-size:18px; color:var(--ink-dim); margin-bottom:20px; text-align:center; }
@@ -283,7 +282,7 @@ let QUESTION_COUNT = 10;
 let selectedDifficulty = 'easy';
 
 function buildQuizPrompt(){
-  const subtopics = learnData.keywords.map(k => k.term);
+  const subtopics = learnData.keywords ? learnData.keywords.map(k => k.term) : [];
   return `You are creating a multiple-choice quiz to test a student on their teacher's notes.
 Based ONLY on the attached notes (do not invent facts not supported by them), create exactly ${QUESTION_COUNT} multiple-choice questions.
 
