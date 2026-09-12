@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   #loadingView, #errorView{ display:none; }
@@ -23,7 +22,7 @@
   <div class="cabinet">
 
     <div class="logoWrap"><img src="assets/sprites/logo.png" alt="Study Invaders: Mission Recall"></div>
-    <p class="tagline">Upload your notes. Sign in with Puter. Defend what you've learned.</p>
+    <p class="tagline">Upload your notes. Defend what you've learned.</p>
 
     <!-- Upload / form state -->
     <div id="formView">
@@ -48,13 +47,6 @@
         <label for="pasteNotes">Paste your notes</label>
         <textarea id="pasteNotes" rows="5" placeholder="Paste text here instead of uploading a file"></textarea>
       </fieldset>
-
-      <div class="puterNotice">
-        <div class="puterNoticeRow">
-          <span class="lockIcon">🔒</span>
-          <span>When you hit Launch, a window will pop up asking you to sign in with a free Puter account — this is what powers the AI, at no cost to you. You only need to do this once per device.</span>
-        </div>
-      </div>
 
       <button class="btnPrimary" id="launchBtn">LAUNCH MISSION</button>
       <div id="status"></div>
@@ -145,7 +137,7 @@ fileInput.addEventListener('change', async () => {
       if(pdf.numPages > MAX_PDF_PAGES){
         zoneHint.textContent = `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
       }
-    } catch(e){ /* not fatal — the real read attempt on submit will surface any real problem */ }
+    } catch(e){ /* not fatal */ }
   }
 });
 
@@ -221,7 +213,7 @@ async function renderPdfPages(file){
   return { pageImages, pageCount, pagesIncluded };
 }
 
-// Builds the `note` object shape assets/ai.js expects.
+// Builds the note object shape assets/ai.js expects
 async function buildNoteFromFile(file){
   const isPdf = file.type === 'application/pdf';
   const isImage = file.type.startsWith('image/');
