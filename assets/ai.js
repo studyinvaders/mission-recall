@@ -1,28 +1,20 @@
 /* ============================================
-   AI helpers: tries Puter.js first (free, no
-   API key needed for the visitor), and falls
-   back to a Cloudflare Worker proxy (which holds
-   the real OpenRouter key server-side) only if
-   Puter's actual AI call fails or hangs.
+   AI helper: Puter.js only. No fallback, on
+   purpose — the whole point of this rebuild is
+   to see clearly whether Puter itself works, so
+   a silent safety net would just hide the answer.
 
    Requires this still in your HTML:
    <script src="https://js.puter.com/v2/"></script>
-
-   No API key goes in this file — it lives safely
-   in your Cloudflare Worker's secret settings.
    ============================================ */
 
-const WORKER_PROXY_URL = "https://study-invaders-proxy.nazminawen21.workers.dev/";
-// Listed in priority order — if the first is rate-limited/down, OpenRouter
-// automatically tries the next one for us.
-const OPENROUTER_MODELS = [
-  "thinkingmachines/inkling:free",
-  "thinkingmachines/inkling-small:free",
-  "google/gemma-4-31b-it:free"
-];
 // Only wraps the actual AI request after sign-in is done — never the
 // sign-in step itself, since that depends on how fast a real person types.
-const PUTER_CALL_TIMEOUT_MS = 15000;
+const PUTER_CALL_TIMEOUT_MS = 30000;
+// Pause between fallback attempts so a failed/timed-out call doesn't
+// immediately fire another request right on its heels — back-to-back
+// requests are a likely trigger for "too many requests" on their own.
+const PUTER_RETRY_DELAY_MS = 4000;
 
 // Strips stray markdown code fences the model sometimes adds, then parses.
 function parseJsonResponse(raw){
@@ -48,7 +40,7 @@ function sleep(ms){
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/* ---------- Puter.js path (primary) ---------- */
+/* ---------- Puter.js path ---------- */
 
 function extractResponseText(response){
   if(typeof response === 'string') return response;
@@ -110,7 +102,14 @@ async function askAIViaPuter(prompt, note){
   if(!authed) throw new Error('Puter sign-in did not complete');
 
   let lastErr;
-  for(const model of PUTER_MODEL_FALLBACKS){
+  for(let i = 0; i < PUTER_MODEL_FALLBACKS.length; i++){
+    const model = PUTER_MODEL_FALLBACKS[i];
+    if(i > 0){
+      // Back off longer if the previous failure looked like a rate limit,
+      // since retrying fast is exactly what would make that worse.
+      const wasRateLimited = lastErr && /too many requests|rate.?limit/i.test(lastErr.message || lastErr.error || '');
+      await sleep(wasRateLimited ? PUTER_RETRY_DELAY_MS * 2 : PUTER_RETRY_DELAY_MS);
+    }
     try {
       const callPromise = (async () => {
         let response;
@@ -143,81 +142,9 @@ async function askAIViaPuter(prompt, note){
   throw lastErr;
 }
 
-/* ---------- OpenRouter path (fallback) ---------- */
-
-async function askAIViaOpenRouter(prompt, note){
-  const contentParts = [{ type: 'text', text: prompt }];
-
-  if(note.isText){
-    contentParts[0].text += "\n\nNOTES CONTENT:\n" + note.content;
-  } else if(note.isPdf){
-    if(note.pagesIncluded < note.pageCount){
-      contentParts[0].text += `\n\n(Note: this document has ${note.pageCount} pages; only the first ${note.pagesIncluded} are attached below.)`;
-    }
-    for(const pageBase64 of note.pageImages){
-      contentParts.push({
-        type: 'image_url',
-        image_url: { url: `data:image/jpeg;base64,${pageBase64}` }
-      });
-    }
-  } else {
-    const dataUrl = `data:${note.mimeType};base64,${note.content}`;
-    contentParts.push({
-      type: 'image_url',
-      image_url: { url: dataUrl }
-    });
-  }
-
-  let lastError;
-
-  for(const model of OPENROUTER_MODELS){
-    const requestBody = {
-      model,
-      messages: [{ role: 'user', content: contentParts }]
-    };
-
-    try {
-      const response = await fetch(WORKER_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if(response.status === 429){
-        lastError = new Error(`${model} is rate-limited`);
-        await sleep(1500);
-        continue;
-      }
-
-      if(!response.ok){
-        const errText = await response.text();
-        lastError = new Error(`AI proxy error (${response.status}) on ${model}: ${errText}`);
-        continue;
-      }
-
-      const data = await response.json();
-      const rawText = data?.choices?.[0]?.message?.content;
-      if(!rawText){
-        lastError = new Error(`No response text from ${model}`);
-        continue;
-      }
-
-      return parseJsonResponse(rawText);
-    } catch (err){
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error('All AI models failed');
-}
-
 /* ---------- Public entry point ---------- */
 
+// Puter only — errors surface directly instead of being masked by a fallback.
 async function askAI(prompt, note){
-  try {
-    return await askAIViaPuter(prompt, note);
-  } catch (err){
-    console.warn('Puter AI unavailable, falling back to proxy:', err);
-    return await askAIViaOpenRouter(prompt, note);
-  }
+  return await askAIViaPuter(prompt, note);
 }
