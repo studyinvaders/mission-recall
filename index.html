@@ -11,6 +11,29 @@
 <style>
   #loadingView, #errorView{ display:none; }
   #errorView p{ font-size:17px; color:var(--ink-dim); margin-bottom:18px; }
+
+  /* Animated Sprite Showcase Below Title */
+  .spriteShowcase {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin: 12px 0 20px 0;
+  }
+  .spriteShowcase img {
+    height: 38px;
+    width: auto;
+    image-rendering: pixelated;
+    animation: floatUpDown 2.4s ease-in-out infinite alternate;
+  }
+  .spriteShowcase img.ufo1 { animation-delay: 0s; }
+  .spriteShowcase img.rocket { animation-delay: 0.8s; height: 44px; }
+  .spriteShowcase img.ufo2 { animation-delay: 1.6s; }
+
+  @keyframes floatUpDown {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-12px); }
+  }
 </style>
 </head>
 <body>
@@ -22,6 +45,14 @@
   <div class="cabinet">
 
     <div class="logoWrap"><img src="assets/sprites/logo.png" alt="Study Invaders: Mission Recall"></div>
+
+    <!-- Animated Floating Sprites Header -->
+    <div class="spriteShowcase">
+      <img src="assets/sprites/ufo_correct.png" class="ufo1" alt="UFO Correct">
+      <img src="assets/sprites/rocket.png" class="rocket" alt="Rocket Ship">
+      <img src="assets/sprites/ufo_wrong.png" class="ufo2" alt="UFO Wrong">
+    </div>
+
     <p class="tagline">Upload your notes. Defend what you've learned.</p>
 
     <!-- Upload / form state -->
@@ -52,7 +83,7 @@
       <div id="status"></div>
     </div>
 
-    <!-- Loading state (AI briefing generation) -->
+    <!-- Loading state -->
     <div id="loadingView" style="text-align:center;">
       <div class="radarLoader">
         <div class="radarSweep"></div>
@@ -115,7 +146,7 @@ callsignInput.addEventListener('input', updateLaunchState);
 
 pasteNotes.addEventListener('input', () => {
   if(pasteNotes.value.trim().length > 0 && selectedFile !== null){
-    resetUploadZone(); // pasting text takes over from a previously chosen file
+    resetUploadZone();
   }
   updateLaunchState();
 });
@@ -124,7 +155,7 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   if(!file) return;
   selectedFile = file;
-  if(pasteNotes.value.trim().length > 0) pasteNotes.value = ''; // file takes over from pasted text
+  if(pasteNotes.value.trim().length > 0) pasteNotes.value = '';
   uploadZone.classList.add('hasFile');
   zoneLabel.textContent = file.name;
   zoneHint.textContent = 'Tap to choose a different file';
@@ -137,11 +168,10 @@ fileInput.addEventListener('change', async () => {
       if(pdf.numPages > MAX_PDF_PAGES){
         zoneHint.textContent = `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
       }
-    } catch(e){ /* not fatal */ }
+    } catch(e){}
   }
 });
 
-// ---------- Loading flourishes ----------
 const LOADING_MESSAGES = [
   'Scanning your notes...',
   'Briefing HQ...',
@@ -172,7 +202,6 @@ function stopLoadingFlourishes(){
   clearInterval(blipInterval);
 }
 
-// ---------- File reading helpers ----------
 function readAsText(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -213,7 +242,6 @@ async function renderPdfPages(file){
   return { pageImages, pageCount, pagesIncluded };
 }
 
-// Builds the note object shape assets/ai.js expects
 async function buildNoteFromFile(file){
   const isPdf = file.type === 'application/pdf';
   const isImage = file.type.startsWith('image/');
@@ -231,7 +259,6 @@ async function buildNoteFromFile(file){
   return { name: file.name, mimeType: 'application/pdf', isText: false, isPdf: true, pageImages, pageCount, pagesIncluded };
 }
 
-// ---------- Briefing prompt ----------
 function buildBriefingPrompt(){
   return `You are an assistant helping a student study from their own notes.
 Based ONLY on the attached notes (do not invent facts not supported by them), produce:
@@ -247,7 +274,6 @@ Respond with ONLY raw JSON (no markdown code fences, no commentary), shaped exac
 }`;
 }
 
-// ---------- Boot ----------
 launchBtn.addEventListener('click', async () => {
   if(!launchBtn.classList.contains('ready')) return;
 
