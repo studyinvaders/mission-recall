@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Briefing — Study Invaders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .briefingSection{ margin-bottom:22px; }
+  .briefingSection h3{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    color: var(--amber);
+    letter-spacing:1px;
+    margin:0 0 10px;
+  }
+  .summaryText{
+    font-size:19px;
+    line-height:1.5;
+    color: var(--ink);
+  }
+  .highlightList{
+    margin:0;
+    padding-left:20px;
+    font-size:18px;
+    line-height:1.6;
+    color: var(--ink);
+  }
+  .highlightList li{ margin-bottom:6px; }
+
+  .keywordGrid{ display:flex; flex-direction:column; gap:10px; }
+  .keywordCard{
+    background: var(--void-deep);
+    border:1px solid var(--panel-edge);
+    border-radius:8px;
+    padding:10px 14px;
+  }
+  .keywordTerm{
+    color: var(--cyan);
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:2px;
+  }
+  .keywordDef{
+    color: var(--ink-dim);
+    font-size:16px;
+    line-height:1.4;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="crt"></div>
+
+<div class="stage">
+  <div class="cabinet wide">
+
+    <div class="topBar">
+      <button class="btnGhost" id="backBtn">&larr; Menu</button>
+      <span class="agentTag">Agent: <span id="agentName">—</span></span>
+    </div>
+    <h2>MISSION BRIEFING</h2>
+
+    <div class="briefingSection">
+      <h3>Summary</h3>
+      <p class="summaryText" id="summaryText"></p>
+    </div>
+
+    <div class="briefingSection">
+      <h3>Key Highlights</h3>
+      <ul class="highlightList" id="highlightList"></ul>
+    </div>
+
+    <div class="briefingSection">
+      <h3>Keywords</h3>
+      <div class="keywordGrid" id="keywordGrid"></div>
+    </div>
+
+    <button class="btnPrimary ready" id="launchBtn">LAUNCH MISSION &gt;</button>
+
+    <p class="creditFooter">Made by Computer System Operation &middot; Sarawak Skills Sri Aman</p>
+
+  </div>
+</div>
+
+<script src="assets/starfield.js"></script>
+<script>
+const username = sessionStorage.getItem('si_username');
+const noteRaw = sessionStorage.getItem('si_note');
+const learnDataRaw = sessionStorage.getItem('si_learnData');
+
+if(!username || !noteRaw || !learnDataRaw){
+  window.location.href = 'index.html';
+}
+
+const learnData = learnDataRaw ? JSON.parse(learnDataRaw) : null;
+
+document.getElementById('agentName').textContent = username || '—';
+
+if(learnData){
+  document.getElementById('summaryText').textContent = learnData.summary || '';
+
+  const highlightList = document.getElementById('highlightList');
+  (learnData.highlights || []).forEach(h => {
+    const li = document.createElement('li');
+    li.textContent = h;
+    highlightList.appendChild(li);
+  });
+
+  const keywordGrid = document.getElementById('keywordGrid');
+  (learnData.keywords || []).forEach(k => {
+    const card = document.createElement('div');
+    card.className = 'keywordCard';
+    const term = document.createElement('div');
+    term.className = 'keywordTerm';
+    term.textContent = k.term;
+    const def = document.createElement('div');
+    def.className = 'keywordDef';
+    def.textContent = k.definition;
+    card.appendChild(term);
+    card.appendChild(def);
+    keywordGrid.appendChild(card);
+  });
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
+document.getElementById('launchBtn').addEventListener('click', () => {
+  window.location.href = 'play.html';
+});
+</script>
+
+</body>
+</html>

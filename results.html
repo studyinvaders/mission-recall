@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Results — Study Invaders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .scoreHero{ text-align:center; margin-bottom:22px; }
+  .scoreHero .bigScore{
+    font-family:'Press Start 2P', monospace;
+    font-size:36px;
+    color: var(--amber);
+    text-shadow: 0 0 16px rgba(255,209,102,0.4);
+    margin-bottom:6px;
+  }
+  .scoreHero .scoreSub{ color: var(--ink-dim); font-size:18px; }
+
+  .breakdownSection h3{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    color: var(--amber);
+    letter-spacing:1px;
+    margin:0 0 12px;
+  }
+  .topicRow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+    font-size:17px;
+  }
+  .topicName{ flex:1; color: var(--ink); }
+  .topicBar{
+    flex:1;
+    height:10px;
+    background: var(--void-deep);
+    border-radius:6px;
+    overflow:hidden;
+    border:1px solid var(--panel-edge);
+  }
+  .topicBarFill{ height:100%; background: linear-gradient(90deg, var(--cyan), #2bb8ac); }
+  .topicFrac{ width:44px; text-align:right; color: var(--ink-dim); font-size:15px; }
+
+  .actionRow{ display:flex; gap:10px; margin-top:24px; }
+  .actionRow .btnPrimary, .actionRow .btnGhost{ flex:1; }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="crt"></div>
+
+<div class="stage">
+  <div class="cabinet wide">
+
+    <div class="topBar">
+      <button class="btnGhost" id="menuBtn">&larr; Menu</button>
+      <span class="agentTag">Agent: <span id="agentName">—</span></span>
+    </div>
+    <h2 style="text-align:center;">MISSION RESULTS</h2>
+
+    <div class="scoreHero">
+      <div class="bigScore" id="bigScore">0</div>
+      <div class="scoreSub" id="scoreSub">0 / 0 correct</div>
+    </div>
+
+    <div class="breakdownSection">
+      <h3>By Topic</h3>
+      <div id="topicBreakdown"></div>
+    </div>
+
+    <div class="actionRow">
+      <button class="btnGhost" id="menuBtnBottom">Back to Menu</button>
+      <button class="btnPrimary ready" id="retryBtn">Try Another Mission</button>
+    </div>
+
+    <p class="creditFooter">Made by Computer System Operation &middot; Sarawak Skills Sri Aman</p>
+
+  </div>
+</div>
+
+<script src="assets/starfield.js"></script>
+<script>
+const username = sessionStorage.getItem('si_username');
+const resultsRaw = sessionStorage.getItem('si_quizResults');
+
+if(!username || !resultsRaw){
+  window.location.href = 'index.html';
+}
+
+const results = resultsRaw ? JSON.parse(resultsRaw) : null;
+document.getElementById('agentName').textContent = username || '—';
+
+if(results){
+  document.getElementById('bigScore').textContent = results.score;
+  document.getElementById('scoreSub').textContent =
+    `${results.correctCount} / ${results.total} correct — ${results.completed ? 'Mission Complete' : 'Mission Failed'}`;
+
+  // Group the per-question log by subtopic
+  const bySubtopic = {};
+  (results.log || []).forEach(entry => {
+    if(!bySubtopic[entry.subtopic]) bySubtopic[entry.subtopic] = { correct: 0, total: 0 };
+    bySubtopic[entry.subtopic].total++;
+    if(entry.correct) bySubtopic[entry.subtopic].correct++;
+  });
+
+  const breakdown = document.getElementById('topicBreakdown');
+  Object.entries(bySubtopic).forEach(([topic, stats]) => {
+    const pct = Math.round((stats.correct / stats.total) * 100);
+    const row = document.createElement('div');
+    row.className = 'topicRow';
+    row.innerHTML = `
+      <div class="topicName">${topic}</div>
+      <div class="topicBar"><div class="topicBarFill" style="width:${pct}%"></div></div>
+      <div class="topicFrac">${stats.correct}/${stats.total}</div>
+    `;
+    breakdown.appendChild(row);
+  });
+
+  if(Object.keys(bySubtopic).length === 0){
+    breakdown.innerHTML = '<p style="color:var(--ink-dim); font-size:16px;">No topic data available for this mission.</p>';
+  }
+}
+
+document.getElementById('menuBtn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('menuBtnBottom').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('retryBtn').addEventListener('click', () => { window.location.href = 'play.html'; });
+</script>
+
+</body>
+</html>

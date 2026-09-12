@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Invaders: Mission Recall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://js.puter.com/v2/"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  #loadingView, #errorView{ display:none; }
+  #errorView p{ font-size:17px; color:var(--ink-dim); margin-bottom:18px; }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="crt"></div>
+
+<div class="stage">
+  <div class="cabinet">
+
+    <div class="logoWrap"><img src="assets/sprites/logo.png" alt="Study Invaders: Mission Recall"></div>
+    <p class="tagline">Upload your notes. Sign in with Puter. Defend what you've learned.</p>
+
+    <!-- Upload / form state -->
+    <div id="formView">
+      <fieldset>
+        <label for="callsign">Agent callsign</label>
+        <input type="text" id="callsign" maxlength="24" placeholder="Your name">
+      </fieldset>
+
+      <fieldset>
+        <label>Upload your notes (.txt, .md, image, or PDF)</label>
+        <div class="uploadZone" id="uploadZone">
+          <div class="zoneLabel" id="zoneLabel">Tap to choose a file</div>
+          <div class="zoneHint" id="zoneHint">or drag one in</div>
+          <input type="file" id="fileInput" accept=".txt,.md,application/pdf,image/*">
+        </div>
+        <div class="fieldNote">PDFs: only the first 15 pages are used.</div>
+      </fieldset>
+
+      <div class="orDivider">or</div>
+
+      <fieldset>
+        <label for="pasteNotes">Paste your notes</label>
+        <textarea id="pasteNotes" rows="5" placeholder="Paste text here instead of uploading a file"></textarea>
+      </fieldset>
+
+      <div class="puterNotice">
+        <div class="puterNoticeRow">
+          <span class="lockIcon">🔒</span>
+          <span>When you hit Launch, a window will pop up asking you to sign in with a free Puter account — this is what powers the AI, at no cost to you. You only need to do this once per device.</span>
+        </div>
+      </div>
+
+      <button class="btnPrimary" id="launchBtn">LAUNCH MISSION</button>
+      <div id="status"></div>
+    </div>
+
+    <!-- Loading state (AI briefing generation) -->
+    <div id="loadingView" style="text-align:center;">
+      <div class="radarLoader">
+        <div class="radarSweep"></div>
+        <div id="blipLayer"></div>
+      </div>
+      <div id="loadingStatus" class="loadingStatusText">Reading your notes...</div>
+    </div>
+
+    <!-- Error state -->
+    <div id="errorView">
+      <p id="errorMessage">Couldn't process that.</p>
+      <button class="btnGhost" id="retryBtn">Try again</button>
+    </div>
+
+    <p class="creditFooter">Made by Computer System Operation &middot; Sarawak Skills Sri Aman</p>
+
+  </div>
+</div>
+
+<script src="assets/starfield.js"></script>
+<script src="assets/ai.js"></script>
+<script>
+const callsignInput = document.getElementById('callsign');
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const zoneLabel = document.getElementById('zoneLabel');
+const zoneHint = document.getElementById('zoneHint');
+const pasteNotes = document.getElementById('pasteNotes');
+const launchBtn = document.getElementById('launchBtn');
+const status = document.getElementById('status');
+
+const formView = document.getElementById('formView');
+const loadingView = document.getElementById('loadingView');
+const errorView = document.getElementById('errorView');
+const loadingStatus = document.getElementById('loadingStatus');
+const blipLayer = document.getElementById('blipLayer');
+
+let selectedFile = null;
+const DEFAULT_ZONE_LABEL = 'Tap to choose a file';
+const DEFAULT_ZONE_HINT = 'or drag one in';
+
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function resetUploadZone(){
+  selectedFile = null;
+  fileInput.value = '';
+  uploadZone.classList.remove('hasFile');
+  zoneLabel.textContent = DEFAULT_ZONE_LABEL;
+  zoneHint.textContent = DEFAULT_ZONE_HINT;
+}
+
+function updateLaunchState(){
+  const hasNotes = selectedFile !== null || pasteNotes.value.trim().length > 0;
+  const ready = callsignInput.value.trim().length > 0 && hasNotes;
+  launchBtn.classList.toggle('ready', ready);
+}
+callsignInput.addEventListener('input', updateLaunchState);
+
+pasteNotes.addEventListener('input', () => {
+  if(pasteNotes.value.trim().length > 0 && selectedFile !== null){
+    resetUploadZone(); // pasting text takes over from a previously chosen file
+  }
+  updateLaunchState();
+});
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if(!file) return;
+  selectedFile = file;
+  if(pasteNotes.value.trim().length > 0) pasteNotes.value = ''; // file takes over from pasted text
+  uploadZone.classList.add('hasFile');
+  zoneLabel.textContent = file.name;
+  zoneHint.textContent = 'Tap to choose a different file';
+  updateLaunchState();
+
+  if(file.type === 'application/pdf'){
+    try{
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      if(pdf.numPages > MAX_PDF_PAGES){
+        zoneHint.textContent = `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
+      }
+    } catch(e){ /* not fatal — the real read attempt on submit will surface any real problem */ }
+  }
+});
+
+// ---------- Loading flourishes ----------
+const LOADING_MESSAGES = [
+  'Scanning your notes...',
+  'Briefing HQ...',
+  'Decoding key concepts...',
+  'Charting the mission...',
+  'Calibrating the quiz core...',
+  'Almost ready, Agent...'
+];
+let statusInterval = null, blipInterval = null, statusIdx = 0;
+function startLoadingFlourishes(){
+  statusIdx = 0;
+  loadingStatus.textContent = LOADING_MESSAGES[0];
+  statusInterval = setInterval(() => {
+    statusIdx = (statusIdx + 1) % LOADING_MESSAGES.length;
+    loadingStatus.textContent = LOADING_MESSAGES[statusIdx];
+  }, 1700);
+  blipInterval = setInterval(() => {
+    const blip = document.createElement('div');
+    blip.className = 'radarBlip';
+    blip.style.left = (20 + Math.random() * 60) + '%';
+    blip.style.top = (20 + Math.random() * 60) + '%';
+    blipLayer.appendChild(blip);
+    setTimeout(() => blip.remove(), 1600);
+  }, 500);
+}
+function stopLoadingFlourishes(){
+  clearInterval(statusInterval);
+  clearInterval(blipInterval);
+}
+
+// ---------- File reading helpers ----------
+function readAsText(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+function readAsBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+const MAX_PDF_PAGES = 15;
+
+async function renderPdfPages(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pageCount = pdf.numPages;
+  const pagesIncluded = Math.min(pageCount, MAX_PDF_PAGES);
+  const pageImages = [];
+
+  for(let i = 1; i <= pagesIncluded; i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.4 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    pageImages.push(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+  }
+
+  return { pageImages, pageCount, pagesIncluded };
+}
+
+// Builds the `note` object shape assets/ai.js expects.
+async function buildNoteFromFile(file){
+  const isPdf = file.type === 'application/pdf';
+  const isImage = file.type.startsWith('image/');
+  const isText = !isPdf && !isImage;
+
+  if(isText){
+    const content = await readAsText(file);
+    return { name: file.name, mimeType: file.type || 'text/plain', isText: true, isPdf: false, content };
+  }
+  if(isImage){
+    const content = await readAsBase64(file);
+    return { name: file.name, mimeType: file.type, isText: false, isPdf: false, content };
+  }
+  const { pageImages, pageCount, pagesIncluded } = await renderPdfPages(file);
+  return { name: file.name, mimeType: 'application/pdf', isText: false, isPdf: true, pageImages, pageCount, pagesIncluded };
+}
+
+// ---------- Briefing prompt ----------
+function buildBriefingPrompt(){
+  return `You are an assistant helping a student study from their own notes.
+Based ONLY on the attached notes (do not invent facts not supported by them), produce:
+1. A short summary (3-5 sentences) of what the notes cover.
+2. 4-8 key highlights as short bullet points.
+3. A list of 5-10 important keywords/subtopics from the notes, each with a one-sentence definition drawn from the notes.
+
+Respond with ONLY raw JSON (no markdown code fences, no commentary), shaped exactly like this:
+{
+  "summary": "...",
+  "highlights": ["...", "..."],
+  "keywords": [ { "term": "...", "definition": "..." } ]
+}`;
+}
+
+// ---------- Boot ----------
+launchBtn.addEventListener('click', async () => {
+  if(!launchBtn.classList.contains('ready')) return;
+
+  formView.style.display = 'none';
+  loadingView.style.display = 'block';
+  errorView.style.display = 'none';
+  startLoadingFlourishes();
+
+  try{
+    const note = selectedFile
+      ? await buildNoteFromFile(selectedFile)
+      : { name: 'pasted-notes.txt', mimeType: 'text/plain', isText: true, isPdf: false, content: pasteNotes.value.trim() };
+    const learnData = await askAI(buildBriefingPrompt(), note);
+
+    sessionStorage.setItem('si_username', callsignInput.value.trim());
+    sessionStorage.setItem('si_note', JSON.stringify(note));
+    sessionStorage.setItem('si_learnData', JSON.stringify(learnData));
+
+    window.location.href = 'learn.html';
+  } catch(err){
+    console.error(err);
+    stopLoadingFlourishes();
+    loadingView.style.display = 'none';
+    errorView.style.display = 'block';
+    document.getElementById('errorMessage').textContent =
+      "Mission prep failed: " + err.message;
+  }
+});
+
+document.getElementById('retryBtn').addEventListener('click', () => {
+  errorView.style.display = 'none';
+  formView.style.display = 'block';
+});
+</script>
+
+</body>
+</html>
