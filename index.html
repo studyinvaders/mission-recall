@@ -63,6 +63,9 @@
   .langModal p { font-size: 16px; color: var(--ink); margin-bottom: 20px; }
   .langOptionBtns { display: flex; gap: 12px; justify-content: center; }
   .langOptionBtns button { flex: 1; padding: 12px; font-size: 14px; }
+  
+  /* Make whole upload zone clickable */
+  .uploadZone { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -76,8 +79,8 @@
     <h3>SELECT LANGUAGE / PILIH BAHASA</h3>
     <p>Choose your preferred language for the mission:</p>
     <div class="langOptionBtns">
-      <button class="btnPrimary ready" onclick="setLanguage('en')">English</button>
-      <button class="btnPrimary ready" onclick="setLanguage('bm')">Bahasa Melayu</button>
+      <button class="btnPrimary ready" id="optEN">English</button>
+      <button class="btnPrimary ready" id="optBM">Bahasa Melayu</button>
     </div>
   </div>
 </div>
@@ -87,8 +90,8 @@
 
     <!-- Language Quick Switcher -->
     <div class="langBar">
-      <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
-      <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
+      <button class="langBtn" id="btnEN">EN</button>
+      <button class="langBtn" id="btnBM">BM</button>
     </div>
 
     <div class="logoWrap"><img src="assets/sprites/logo.png" alt="Study Invaders: Mission Recall"></div>
@@ -112,7 +115,7 @@
         <div class="uploadZone" id="uploadZone">
           <div class="zoneLabel" id="zoneLabel">Tap to choose a file</div>
           <div class="zoneHint" id="zoneHint">or drag one in</div>
-          <input type="file" id="fileInput" accept=".txt,.md,application/pdf,image/*">
+          <input type="file" id="fileInput" accept=".txt,.md,application/pdf,image/*" style="display:none;">
         </div>
         <div class="fieldNote" id="t_pdfNote">PDFs: only the first 15 pages are used.</div>
       </fieldset>
@@ -183,8 +186,8 @@ const i18n = {
   }
 };
 
-// Safe fallback initialization to avoid null errors during file upload
 let currentLang = localStorage.getItem('si_lang') || 'en';
+let selectedFile = null;
 
 function setLanguage(lang) {
   currentLang = lang;
@@ -211,7 +214,12 @@ function setLanguage(lang) {
   document.getElementById('retryBtn').textContent = dict.retryBtn;
 }
 
-// Show modal if user has never picked a language, but keep fallback active
+// Bind language buttons safely
+document.getElementById('optEN').addEventListener('click', () => setLanguage('en'));
+document.getElementById('optBM').addEventListener('click', () => setLanguage('bm'));
+document.getElementById('btnEN').addEventListener('click', () => setLanguage('en'));
+document.getElementById('btnBM').addEventListener('click', () => setLanguage('bm'));
+
 if(!localStorage.getItem('si_lang')) {
   document.getElementById('langModal').style.display = 'flex';
 } else {
@@ -233,7 +241,10 @@ const errorView = document.getElementById('errorView');
 const loadingStatus = document.getElementById('loadingStatus');
 const blipLayer = document.getElementById('blipLayer');
 
-let selectedFile = null;
+// Direct click handler on the container box to trigger hidden file input
+uploadZone.addEventListener('click', () => {
+  fileInput.click();
+});
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -262,8 +273,8 @@ pasteNotes.addEventListener('input', () => {
   updateLaunchState();
 });
 
-fileInput.addEventListener('change', async () => {
-  const file = fileInput.files[0];
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
   if(!file) return;
   selectedFile = file;
   if(pasteNotes.value.trim().length > 0) pasteNotes.value = '';
@@ -281,7 +292,7 @@ fileInput.addEventListener('change', async () => {
           ? `Perhatian: hanya ${MAX_PDF_PAGES} daripada ${pdf.numPages} halaman akan digunakan.`
           : `Heads up: only the first ${MAX_PDF_PAGES} of ${pdf.numPages} pages will be used.`;
       }
-    } catch(e){}
+    } catch(err){ console.error(err); }
   }
 });
 
