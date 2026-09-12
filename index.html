@@ -183,7 +183,8 @@ const i18n = {
   }
 };
 
-let currentLang = localStorage.getItem('si_lang') || null;
+// Safe fallback initialization to avoid null errors during file upload
+let currentLang = localStorage.getItem('si_lang') || 'en';
 
 function setLanguage(lang) {
   currentLang = lang;
@@ -193,7 +194,7 @@ function setLanguage(lang) {
   document.getElementById('btnEN').classList.toggle('active', lang === 'en');
   document.getElementById('btnBM').classList.toggle('active', lang === 'bm');
 
-  const dict = i18n[lang];
+  const dict = i18n[lang] || i18n.en;
   document.getElementById('t_tagline').textContent = dict.tagline;
   document.getElementById('t_callsignLabel').textContent = dict.callsignLabel;
   document.getElementById('callsign').placeholder = dict.callsignPlaceholder;
@@ -210,11 +211,13 @@ function setLanguage(lang) {
   document.getElementById('retryBtn').textContent = dict.retryBtn;
 }
 
-if(!currentLang) {
+// Show modal if user has never picked a language, but keep fallback active
+if(!localStorage.getItem('si_lang')) {
   document.getElementById('langModal').style.display = 'flex';
 } else {
-  setLanguage(currentLang);
+  document.getElementById('langModal').style.display = 'none';
 }
+setLanguage(currentLang);
 
 const callsignInput = document.getElementById('callsign');
 const uploadZone = document.getElementById('uploadZone');
@@ -240,7 +243,7 @@ function resetUploadZone(){
   selectedFile = null;
   fileInput.value = '';
   uploadZone.classList.remove('hasFile');
-  const dict = i18n[currentLang || 'en'];
+  const dict = i18n[currentLang] || i18n.en;
   zoneLabel.textContent = dict.zoneLabel;
   zoneHint.textContent = dict.zoneHint;
 }
@@ -285,7 +288,8 @@ fileInput.addEventListener('change', async () => {
 let statusInterval = null, blipInterval = null, statusIdx = 0;
 function startLoadingFlourishes(){
   statusIdx = 0;
-  const msgs = i18n[currentLang || 'en'].loading;
+  const dict = i18n[currentLang] || i18n.en;
+  const msgs = dict.loading;
   loadingStatus.textContent = msgs[0];
   statusInterval = setInterval(() => {
     statusIdx = (statusIdx + 1) % msgs.length;
