@@ -76,6 +76,7 @@
       <div class="navBtnGroup">
         <button class="btnGhost" id="menuBtn">&larr; Menu</button>
         <div class="langBar">
+          <button class="langBtn" id="muteBtn">🔊 SOUND</button>
           <button class="langBtn" id="btnEN" onclick="setLanguage('en')">EN</button>
           <button class="langBtn" id="btnBM" onclick="setLanguage('bm')">BM</button>
         </div>
@@ -105,6 +106,7 @@
 </div>
 
 <script src="assets/starfield.js"></script>
+<script src="assets/audio.js"></script>
 <script>
 const i18n = {
   en: {
@@ -167,6 +169,14 @@ function setLanguage(lang) {
     }
   }
 }
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', () => {
+  const isMuted = audioEngine.toggleMute();
+  muteBtn.textContent = isMuted ? '🔇 MUTED' : '🔊 SOUND';
+  muteBtn.classList.toggle('active', !isMuted);
+});
+if (audioEngine.isMuted) muteBtn.textContent = '🔇 MUTED';
 
 if(results){
   document.getElementById('bigScore').textContent = results.score;
