@@ -35,8 +35,8 @@
     100% { transform: translateY(-12px); }
   }
 
-  /* Language Switcher & Modal */
-  .langBar { display: flex; gap: 6px; position: absolute; top: 16px; right: 16px; z-index: 10; }
+  /* Language Switcher & Audio Controls */
+  .topControls { display: flex; gap: 6px; position: absolute; top: 16px; right: 16px; z-index: 10; align-items: center; }
   .langBtn {
     background: var(--void-deep);
     border: 1px solid var(--panel-edge);
@@ -64,7 +64,6 @@
   .langOptionBtns { display: flex; gap: 12px; justify-content: center; }
   .langOptionBtns button { flex: 1; padding: 12px; font-size: 14px; }
   
-  /* Make whole upload zone clickable */
   .uploadZone { cursor: pointer; }
 </style>
 </head>
@@ -88,8 +87,9 @@
 <div class="stage">
   <div class="cabinet" style="position: relative;">
 
-    <!-- Language Quick Switcher -->
-    <div class="langBar">
+    <!-- Language Quick Switcher & Audio Controls -->
+    <div class="topControls">
+      <button class="langBtn" id="muteBtn">🔊 SOUND</button>
       <button class="langBtn" id="btnEN">EN</button>
       <button class="langBtn" id="btnBM">BM</button>
     </div>
@@ -151,8 +151,8 @@
 
 <script src="assets/starfield.js"></script>
 <script src="assets/ai.js"></script>
+<script src="assets/audio.js"></script>
 <script>
-// Translation Dictionary
 const i18n = {
   en: {
     tagline: "Upload your notes. Defend what you've learned.",
@@ -214,11 +214,19 @@ function setLanguage(lang) {
   document.getElementById('retryBtn').textContent = dict.retryBtn;
 }
 
-// Bind language buttons safely
+// Bind buttons
 document.getElementById('optEN').addEventListener('click', () => setLanguage('en'));
 document.getElementById('optBM').addEventListener('click', () => setLanguage('bm'));
 document.getElementById('btnEN').addEventListener('click', () => setLanguage('en'));
 document.getElementById('btnBM').addEventListener('click', () => setLanguage('bm'));
+
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', () => {
+  const isMuted = audioEngine.toggleMute();
+  muteBtn.textContent = isMuted ? '🔇 MUTED' : '🔊 SOUND';
+  muteBtn.classList.toggle('active', !isMuted);
+});
+if (audioEngine.isMuted) muteBtn.textContent = '🔇 MUTED';
 
 if(!localStorage.getItem('si_lang')) {
   document.getElementById('langModal').style.display = 'flex';
@@ -241,10 +249,7 @@ const errorView = document.getElementById('errorView');
 const loadingStatus = document.getElementById('loadingStatus');
 const blipLayer = document.getElementById('blipLayer');
 
-// Direct click handler on the container box to trigger hidden file input
-uploadZone.addEventListener('click', () => {
-  fileInput.click();
-});
+uploadZone.addEventListener('click', () => { fileInput.click(); });
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
